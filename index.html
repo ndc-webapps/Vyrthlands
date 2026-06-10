@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlockWorld — Floating Islands Voxel Sandbox</title>
+  <link rel="stylesheet" href="/src/ui/style.css" />
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"><span></span><span></span></div>
+    <div id="controls-help">
+      <div><b>WASD</b> move · <b>Space</b> jump · <b>F</b> fly</div>
+      <div><b>LMB</b> break · <b>RMB</b> place · <b>1–7</b> blocks</div>
+      <div><b>Esc</b> menu</div>
+    </div>
+    <div id="health-bar" class="hidden"><div id="health-fill"></div></div>
+    <div id="hotbar"></div>
+    <div id="selected-block-name"></div>
+    <div id="mode-badge"></div>
+  </div>
+
+  <!-- Title screen -->
+  <div id="title-screen">
+    <div class="panel">
+      <h1>Block<span>World</span></h1>
+      <p class="tagline">A floating-islands voxel sandbox</p>
+      <button id="btn-new" class="primary">New World</button>
+      <button id="btn-continue" class="hidden">Continue World</button>
+      <div class="mode-row">
+        <button id="btn-mode-creative" class="mode active">Creative</button>
+        <button id="btn-mode-survival" class="mode">Survival</button>
+      </div>
+      <p class="hint">Click to play · pointer lock required · desktop recommended</p>
+    </div>
+  </div>
+
+  <!-- Pause menu -->
+  <div id="pause-menu" class="hidden">
+    <div class="panel">
+      <h2>Paused</h2>
+      <button id="btn-resume" class="primary">Resume</button>
+      <button id="btn-save">Save World</button>
+      <button id="btn-load">Load World</button>
+      <button id="btn-newworld">New World</button>
+      <button id="btn-quit">Quit to Title</button>
+      <p id="save-status" class="hint"></p>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
