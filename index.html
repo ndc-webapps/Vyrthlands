@@ -3,38 +3,362 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BlockWorld — Floating Islands Voxel Sandbox</title>
+  <title>Vyrthlands - Voxel Survival RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/ui/style.css" />
 </head>
 <body>
   <canvas id="game-canvas"></canvas>
 
+  <div id="landing-page">
+    <header class="landing-nav">
+      <div class="brand-logo">
+        <span class="logo-mark">V</span>
+        <span class="brand-name">Vyrthlands</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#worlds">Worlds</a>
+        <a href="#roles">Roles</a>
+        <a href="#crafting">Crafting</a>
+        <a href="#roadmap">Roadmap</a>
+      </nav>
+      <div class="nav-actions">
+        <button id="landing-login" class="ghost-btn">Login</button>
+        <button id="landing-create" class="ghost-btn">Create Account</button>
+      </div>
+    </header>
+
+    <main class="landing-scroll">
+      <section class="hero" id="top-hero">
+        <div class="hero-inner">
+          <div class="hero-copy">
+            <span class="hero-badge">Prismatic Void Access</span>
+            <h1 class="hero-title">Vyrthlands</h1>
+            <p class="hero-subtitle">Forge floating realms under a crystal-lit sky.</p>
+            <p class="hero-text">Explore cinematic voxel islands, mine Sky Crystal, choose a combat role, and survive worlds that become far stranger after nightfall.</p>
+            <div class="hero-actions">
+              <button id="btn-start-adventure" class="primary hero-primary">Start Adventure</button>
+              <button id="btn-explore-realms" class="secondary">Explore Realms</button>
+            </div>
+            <div class="hero-pill-row">
+              <span class="hero-pill">14 Realms</span>
+              <span class="hero-pill">RPG Roles</span>
+              <span class="hero-pill">Survival Crafting</span>
+              <span class="hero-pill">Dangerous Nights</span>
+            </div>
+            <div class="hero-signal-row" aria-label="Live realm signal">
+              <span>Seeded worlds</span>
+              <span>Local saves</span>
+              <span>Crystal glow blocks</span>
+            </div>
+          </div>
+
+          <div class="hero-scene" aria-hidden="true">
+            <div class="scene-backdrop"></div>
+            <div class="scene-glow"></div>
+            <div class="scene-sun"></div>
+            <div class="scene-mountains"></div>
+            <div class="scene-fog fog-back"></div>
+            <div class="scene-island">
+              <div class="island-layer grass"></div>
+              <div class="island-layer dirt"></div>
+              <div class="island-layer stone"></div>
+              <div class="island-detail cave"></div>
+              <div class="island-detail crystal-cluster">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="island-detail tree tree-left"></div>
+              <div class="island-detail tree tree-right"></div>
+              <div class="island-detail torch"></div>
+            </div>
+            <div class="floating-rock rock-one"></div>
+            <div class="floating-rock rock-two"></div>
+            <div class="floating-rock rock-three"></div>
+            <div class="scene-block scene-block-one"></div>
+            <div class="scene-block scene-block-two"></div>
+            <div class="scene-block scene-block-three"></div>
+            <div class="realm-terminal">
+              <span>Featured Realm</span>
+              <strong>Sky Islands</strong>
+              <small>Fall danger / Sky Crystal / wind spirits</small>
+            </div>
+            <div class="crystal-readout">
+              <span>CRYSTAL SIGNAL</span>
+              <strong>98%</strong>
+            </div>
+            <div class="scene-fog fog-front"></div>
+            <div class="scene-particles">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="crafting" class="landing-section landing-feature-section">
+        <div class="section-heading">
+          <div>
+            <h2>Realm Features</h2>
+            <p>Deep survival systems, curated voxel worlds, and cinematic RPG progression built for exploration.</p>
+          </div>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon">MW</div>
+            <h3>Massive Worlds</h3>
+            <p>Discover sprawling islands, hidden caves, and shifting terrain in every realm.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">SC</div>
+            <h3>Survival Crafting</h3>
+            <p>Gather, craft, and refine tools to survive the night and build legendary bases.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">RP</div>
+            <h3>RPG Roles</h3>
+            <p>Play as Assassin, Wizard, Swordsman, Healer, or Gunner with unique strengths.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">TR</div>
+            <h3>Themed Realms</h3>
+            <p>Enter haunted villages, prehistoric wilds, cyberpunk ruins, and more.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">DN</div>
+            <h3>Dangerous Nights</h3>
+            <p>Nightfall brings stronger foes, eerie glow, and rare crystalline rewards.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">BA</div>
+            <h3>Build Anything</h3>
+            <p>Shape the world with voxel construction, defenses, and glowing architecture.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="worlds" class="landing-section landing-preview-section">
+        <div class="section-heading">
+          <div>
+            <h2>World Preview</h2>
+            <p>Each realm has its own danger, enemies, and crystalline resources to conquer.</p>
+          </div>
+        </div>
+        <div class="world-grid">
+          <article class="world-card prehistoric">
+            <span class="card-label">Pre Historic</span>
+            <h3>Ancient wildlands</h3>
+            <p>Roaming dinosaurs, volcanic ruins, and lethal night predators.</p>
+            <div class="card-meta"><small>Enemies: Raptors, Predators</small><small>Resource: Amber Crystal</small><small>Danger: High</small></div>
+          </article>
+          <article class="world-card zombie">
+            <span class="card-label">Zombie World</span>
+            <h3>Ruined suburbs</h3>
+            <p>Collapsed cities and infected hordes that stalk every shadow.</p>
+            <div class="card-meta"><small>Enemies: Walkers, Runners</small><small>Resource: Med Scrap</small><small>Danger: High</small></div>
+          </article>
+          <article class="world-card battlefront">
+            <span class="card-label">Battlefront Ruins</span>
+            <h3>War-torn trenches</h3>
+            <p>Broken bunkers, smoke, and tactical danger around every corner.</p>
+            <div class="card-meta"><small>Enemies: Soldiers, Scouts</small><small>Resource: Fuel Cell</small><small>Danger: Medium</small></div>
+          </article>
+          <article class="world-card medieval">
+            <span class="card-label">Medieval Kingdom</span>
+            <h3>Castle forests</h3>
+            <p>Magic ruins, goblins, and knightly threats in ancient ruins.</p>
+            <div class="card-meta"><small>Enemies: Goblins, Skeletons</small><small>Resource: Magic Crystal</small><small>Danger: Medium</small></div>
+          </article>
+          <article class="world-card cyberpunk">
+            <span class="card-label">Cyberpunk City</span>
+            <h3>Neon rain</h3>
+            <p>High-tech towers, drones, and synthetic enemies under neon skies.</p>
+            <div class="card-meta"><small>Enemies: Drones, Robots</small><small>Resource: Energy Core</small><small>Danger: High</small></div>
+          </article>
+          <article class="world-card haunted">
+            <span class="card-label">Haunted Village</span>
+            <h3>Cursed woods</h3>
+            <p>Foggy hamlets, witches, and restless spirits that haunt every lane.</p>
+            <div class="card-meta"><small>Enemies: Witches, Ghosts</small><small>Resource: Soul Shard</small><small>Danger: High</small></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="roles" class="landing-section landing-roles-section">
+        <div class="section-heading">
+          <div>
+            <h2>Role Preview</h2>
+            <p>Choose a class that matches your combat and survival style.</p>
+          </div>
+        </div>
+        <div class="role-grid">
+          <article class="role-card assassin">
+            <span class="role-name">Assassin</span>
+            <p>Strike from shadow with speed and critical damage.</p>
+            <small>Weapon: Daggers / Passive: Shadow Step</small>
+          </article>
+          <article class="role-card wizard">
+            <span class="role-name">Wizard</span>
+            <p>Wield arcane crystals to blast enemies and control the field.</p>
+            <small>Weapon: Staff / Passive: Mana Flow</small>
+          </article>
+          <article class="role-card swordsman">
+            <span class="role-name">Swordsman</span>
+            <p>Balanced fighter built for powerful melee combat and endurance.</p>
+            <small>Weapon: Sword / Passive: Fortitude</small>
+          </article>
+          <article class="role-card healer">
+            <span class="role-name">Support Healer</span>
+            <p>Restore allies and outlast the darkest hours.</p>
+            <small>Weapon: Talisman / Passive: Recovery</small>
+          </article>
+          <article class="role-card gunner">
+            <span class="role-name">Gunner</span>
+            <p>Ranged specialist with heavy firepower and tactical precision.</p>
+            <small>Weapon: Rifle / Passive: Quick Draw</small>
+          </article>
+        </div>
+      </section>
+
+      <section id="roadmap" class="landing-section landing-cta-section">
+        <div class="cta-panel">
+          <div>
+            <h2>Ready to enter Vyrthlands?</h2>
+            <p>Start your cinematic survival journey through crystal-lit realms and dangerous nights.</p>
+          </div>
+          <div class="cta-buttons">
+            <button id="btn-start-adventure-cta" class="primary">Start Adventure</button>
+            <button id="btn-landing-continue" class="secondary hidden">Continue World</button>
+          </div>
+        </div>
+      </section>
+
+      <footer class="landing-footer">
+        <div>
+          <b>Vyrthlands</b>
+          <span>Cinematic voxel survival RPG with original fantasy realms.</span>
+        </div>
+        <div class="footer-links">
+          <a href="#worlds">Worlds</a>
+          <a href="#roles">Roles</a>
+          <a href="#crafting">Crafting</a>
+          <a href="#roadmap">Roadmap</a>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <div id="login-modal" class="hidden">
+    <div class="modal-panel">
+      <button id="login-close" class="modal-close">x</button>
+      <span class="modal-eyebrow">Vyrthlands Account</span>
+      <h2>Login</h2>
+      <p>Account sync is coming soon. The guest path is ready for local worlds.</p>
+      <input id="login-email" type="email" placeholder="Email" autocomplete="email" />
+      <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
+      <button id="login-submit" class="primary">Login</button>
+      <button id="login-create" class="link-btn">Create Account</button>
+      <button id="login-forgot" class="link-btn">Forgot Password</button>
+      <button id="login-guest" class="secondary">Continue as Guest</button>
+    </div>
+  </div>
+
   <!-- HUD -->
   <div id="hud" class="hidden">
     <div id="crosshair"><span></span><span></span></div>
     <div id="controls-help">
-      <div><b>WASD</b> move · <b>Space</b> jump · <b>F</b> fly</div>
-      <div><b>LMB</b> break · <b>RMB</b> place · <b>1–7</b> blocks</div>
+      <div><b>WASD</b> move / <b>Space</b> jump / <b>F</b> fly</div>
+      <div><b>LMB</b> break / <b>RMB</b> place/use / <b>1-0</b> slots</div>
+      <div><b>B</b> backpack / <b>C</b> craft / <b>K</b> character</div>
+      <div><b>Q</b>/<b>E</b> skills</div>
       <div><b>Esc</b> menu</div>
     </div>
     <div id="health-bar" class="hidden"><div id="health-fill"></div></div>
+    <div id="mana-bar" class="hidden"><div id="mana-fill"></div></div>
+    <div id="break-progress" class="hidden"><div></div></div>
+    <div id="skill-bar" class="hidden"></div>
     <div id="hotbar"></div>
     <div id="selected-block-name"></div>
     <div id="mode-badge"></div>
   </div>
 
-  <!-- Title screen -->
-  <div id="title-screen">
-    <div class="panel">
-      <h1>Block<span>World</span></h1>
-      <p class="tagline">A floating-islands voxel sandbox</p>
-      <button id="btn-new" class="primary">New World</button>
-      <button id="btn-continue" class="hidden">Continue World</button>
+  <!-- Title / world creation screen -->
+  <div id="title-screen" class="hidden">
+    <div class="panel panel-wide">
+      <button id="btn-back-landing" class="back-btn">Back</button>
+      <h1>Vyrth<span>lands</span></h1>
+      <p class="tagline">Choose a realm. Survive the story.</p>
+
+      <div class="opt-group">
+        <label>World Type</label>
+        <div class="opt-row" id="world-type-row">
+          <button data-type="natural" class="opt active">Natural</button>
+          <button data-type="flat" class="opt">Flat</button>
+          <button data-type="prehistoric" class="opt">Pre Historic</button>
+          <button data-type="battlefront" class="opt">Battlefront Ruins</button>
+          <button data-type="zombie" class="opt">Zombie World</button>
+          <button data-type="medieval" class="opt">Medieval Kingdom</button>
+          <button data-type="cyberpunk" class="opt">Cyberpunk City</button>
+          <button data-type="alien" class="opt">Alien Planet</button>
+          <button data-type="skyislands" class="opt">Sky Islands</button>
+          <button data-type="underworld" class="opt">Underworld</button>
+          <button data-type="frozen" class="opt">Ice Age</button>
+          <button data-type="pirate" class="opt">Pirate Island</button>
+          <button data-type="haunted" class="opt">Haunted Village</button>
+          <button data-type="wasteland" class="opt">Wasteland</button>
+          <button data-type="mythology" class="opt">Mythology World</button>
+        </div>
+        <p class="opt-desc" id="world-type-desc">Hills, forests, beaches, and floating crystal islands. Danger: Low. Enemies: Gloomlings at night. Resource: Sky Crystal. Build and explore.</p>
+      </div>
+
+      <div class="opt-group">
+        <label>World Size</label>
+        <div class="opt-row" id="world-size-row">
+          <button data-size="small" class="opt">Small</button>
+          <button data-size="medium" class="opt active">Medium</button>
+          <button data-size="large" class="opt">Large</button>
+          <button data-size="huge" class="opt">Huge</button>
+        </div>
+      </div>
+
+      <div class="opt-group">
+        <label>Render Distance</label>
+        <div class="opt-row" id="render-dist-row">
+          <button data-rd="near" class="opt">Near</button>
+          <button data-rd="normal" class="opt active">Normal</button>
+          <button data-rd="far" class="opt">Far</button>
+          <button data-rd="ultra" class="opt">Ultra</button>
+        </div>
+      </div>
+
+      <div class="opt-group">
+        <label>Seed</label>
+        <div class="seed-row">
+          <input id="seed-input" type="text" placeholder="random" autocomplete="off" spellcheck="false" />
+          <button id="btn-seed-random" title="Random seed">Rand</button>
+        </div>
+      </div>
+
+      <div class="opt-group">
+        <label>Role</label>
+        <div class="opt-row" id="role-row">
+          <button data-role="swordsman" class="opt active">Swordsman</button>
+          <button data-role="assassin" class="opt">Assassin</button>
+          <button data-role="wizard" class="opt">Wizard</button>
+          <button data-role="healer" class="opt">Healer</button>
+          <button data-role="gunner" class="opt">Gunner</button>
+        </div>
+        <p class="opt-desc" id="role-desc">Tough front-liner. Extra health, starts armed.</p>
+      </div>
+
       <div class="mode-row">
         <button id="btn-mode-creative" class="mode active">Creative</button>
         <button id="btn-mode-survival" class="mode">Survival</button>
       </div>
-      <p class="hint">Click to play · pointer lock required · desktop recommended</p>
+
+      <button id="btn-new" class="primary">Create World</button>
+      <button id="btn-continue" class="hidden">Continue World</button>
+      <p class="hint">Click to play / pointer lock required / desktop recommended</p>
     </div>
   </div>
 
@@ -42,14 +366,16 @@
   <div id="pause-menu" class="hidden">
     <div class="panel">
       <h2>Paused</h2>
+      <p class="hint" id="pause-seed"></p>
       <button id="btn-resume" class="primary">Resume</button>
       <button id="btn-save">Save World</button>
       <button id="btn-load">Load World</button>
-      <button id="btn-newworld">New World</button>
       <button id="btn-quit">Quit to Title</button>
       <p id="save-status" class="hint"></p>
     </div>
   </div>
+
+  <div id="inv-overlay" class="hidden"></div>
 
   <div id="toast" class="hidden"></div>
 

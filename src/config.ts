@@ -1,22 +1,40 @@
 export const CHUNK_SIZE = 16;
-export const WORLD_CHUNKS_X = 8; // world is 8x8 chunks = 128x128 blocks
-export const WORLD_CHUNKS_Z = 8;
-export const WORLD_HEIGHT = 80;
-export const WATER_LEVEL = 21;
+export const WORLD_HEIGHT = 100;
 
-export const WORLD_SIZE_X = WORLD_CHUNKS_X * CHUNK_SIZE;
-export const WORLD_SIZE_Z = WORLD_CHUNKS_Z * CHUNK_SIZE;
+// World size presets: chunks per side
+export const WORLD_SIZES = {
+  small: 12,   // 192x192 blocks
+  medium: 20,  // 320x320
+  large: 32,   // 512x512
+  huge: 64,    // 1024x1024 (streamed, never fully meshed)
+} as const;
+export type WorldSizeKey = keyof typeof WORLD_SIZES;
+
+// Render distance presets: chunks radius around player
+export const RENDER_DISTANCES = {
+  near: 4,
+  normal: 6,
+  far: 8,
+  ultra: 10,
+} as const;
+export type RenderDistanceKey = keyof typeof RENDER_DISTANCES;
+
+// Max chunk meshes built per frame while streaming
+export const CHUNK_BUILD_BUDGET = 2;
 
 export const GRAVITY = -26;
 export const JUMP_SPEED = 8.5;
 export const WALK_SPEED = 5.2;
-export const FLY_SPEED = 11;
+export const FLY_SPEED = 14;
 export const PLAYER_WIDTH = 0.6;
 export const PLAYER_HEIGHT = 1.8;
 export const EYE_HEIGHT = 1.62;
 export const REACH = 6;
 
 export const MOUSE_SENSITIVITY = 0.0022;
-export const DAY_LENGTH_SECONDS = 240;
+export const CREATIVE_BREAK_REPEAT = 0.22; // seconds between breaks while holding LMB in creative
+export const PLACE_REPEAT = 0.22;          // seconds between places while holding RMB
+export const THIRD_PERSON_DISTANCE = 4;
+export const DAY_LENGTH_SECONDS = 480;
 
-export const SAVE_KEY = 'blockworld_save_v1';
+export const SAVE_KEY = 'blockworld_save_v3';

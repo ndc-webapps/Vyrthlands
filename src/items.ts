@@ -1,0 +1,357 @@
+import { Block, BLOCKS, BlockMaterial } from './blocks';
+import { Atlas } from './textures';
+import { ToolDef, ToolKind, HAND, EFFECTIVE, tool } from './tools';
+
+/**
+ * Item id space: 1-99 = placeable block items (same id as Block enum),
+ * 100+ = materials and tools.
+ */
+export const enum Item {
+  // materials
+  Stick = 100,
+  EmberCoal = 101,
+  RawIron = 102,
+  IronIngot = 103,
+  RawGold = 104,
+  GoldIngot = 105,
+  CrystalShard = 106,
+  VoidShard = 107,
+  LeafFiber = 108,
+  // tools / weapons
+  WoodPickaxe = 120,
+  StonePickaxe = 121,
+  IronPickaxe = 122,
+  GoldPickaxe = 123,
+  CrystalPickaxe = 124,
+  WoodAxe = 125,
+  StoneAxe = 126,
+  Shovel = 127,
+  Sword = 128,
+  Dagger = 129,
+  Staff = 130,
+  Blaster = 131,
+  Wand = 132,
+  FossilShard = 140,
+  AmberResin = 141,
+  PrimalHide = 142,
+  ScrapIron = 143,
+  AmmoCasing = 144,
+  FuelCell = 145,
+  InfectedTissue = 146,
+  MedScrap = 147,
+  CannedFood = 148,
+  SilverOre = 149,
+  MagicCrystal = 150,
+  AncientRelic = 151,
+  EnergyCore = 152,
+  CircuitBoard = 153,
+  PlasmaCell = 154,
+  SoulShard = 155,
+  CursedWood = 156,
+  MoonHerb = 157,
+  // food / consumables
+  RawMeat = 158,
+  CookedMeat = 159,
+  Bandage = 160,
+  // armor
+  LeatherCap = 161,
+  LeatherTunic = 162,
+  LeatherPants = 163,
+  LeatherBoots = 164,
+  IronHelmet = 165,
+  IronChestplate = 166,
+  IronLeggings = 167,
+  IronBoots = 168,
+  // extra weapons
+  WoodSword = 169,
+  StoneSword = 170,
+}
+
+export interface ItemDef {
+  id: number;
+  name: string;
+  stack: number;
+  tool?: ToolDef;
+  /** Eat to heal this fraction of max health (right-click in survival). */
+  food?: number;
+  /** Damage reduction fraction while equipped. */
+  armor?: number;
+  /** Which equipment slot this fits ('head' | 'body' | 'legs' | 'boots'). */
+  slot?: 'head' | 'body' | 'legs' | 'boots';
+  /** 16x16 pixel painter for non-block items */
+  icon?: (px: (x: number, y: number, c: string) => void) => void;
+}
+
+// ---------- pixel icon painters ----------
+function lump(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (let y = 5; y < 13; y++) for (let x = 4; x < 12; x++) {
+      if ((x - 8) * (x - 8) + (y - 9) * (y - 9) < 14) px(x, y, (x + y) % 3 === 0 ? c2 : c1);
+    }
+  };
+}
+function shard(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (let y = 2; y < 14; y++) {
+      const w = 6 - Math.abs(y - 8);
+      for (let x = 8 - w / 2; x < 8 + w / 2; x++) px(Math.floor(x), y, x < 8 ? c2 : c1);
+    }
+  };
+}
+function ingot(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (let y = 6; y < 11; y++) for (let x = 2 + (10 - y) / 2; x < 13 + (10 - y) / 2; x++) {
+      px(Math.floor(x), y, y === 6 ? c2 : c1);
+    }
+  };
+}
+function stickIcon(px: (x: number, y: number, c: string) => void): void {
+  for (let i = 0; i < 10; i++) { px(3 + i, 13 - i, '#8a6437'); px(4 + i, 13 - i, '#a87f4d'); }
+}
+function handleDiag(px: (x: number, y: number, c: string) => void): void {
+  for (let i = 0; i < 9; i++) { px(3 + i, 13 - i, '#8a6437'); px(4 + i, 13 - i, '#a87f4d'); }
+}
+function pickIcon(head: string, edge: string): ItemDef['icon'] {
+  return (px) => {
+    handleDiag(px);
+    for (let x = 2; x < 14; x++) {
+      const dip = Math.floor(Math.abs(x - 8) / 3);
+      px(x, 2 + dip, head); px(x, 3 + dip, edge);
+    }
+  };
+}
+function axeIcon(head: string, edge: string): ItemDef['icon'] {
+  return (px) => {
+    handleDiag(px);
+    for (let y = 1; y < 7; y++) for (let x = 6; x < 12 - (y > 4 ? y - 4 : 0); x++) {
+      px(x, y, x < 8 ? edge : head);
+    }
+  };
+}
+function shovelIcon(px: (x: number, y: number, c: string) => void): void {
+  handleDiag(px);
+  for (let y = 1; y < 6; y++) for (let x = 9; x < 14; x++) {
+    if (Math.abs(x - 11.5) + Math.abs(y - 3) < 4) px(x, y, y < 3 ? '#d8dce4' : '#aab0bc');
+  }
+}
+function swordIcon(blade: string, guard: string): ItemDef['icon'] {
+  return (px) => {
+    for (let i = 0; i < 9; i++) { px(5 + i, 10 - i, blade); px(6 + i, 10 - i, '#ffffff'); }
+    px(4, 11, guard); px(5, 12, guard); px(6, 11, guard); px(5, 10, guard);
+    px(3, 13, '#8a6437'); px(2, 14, '#8a6437');
+  };
+}
+function staffIcon(px: (x: number, y: number, c: string) => void): void {
+  for (let i = 0; i < 11; i++) { px(4 + i, 14 - i, '#7a5a36'); }
+  for (let y = 1; y < 6; y++) for (let x = 10; x < 15; x++) {
+    if ((x - 12) * (x - 12) + (y - 3) * (y - 3) < 5) px(x, y, (x + y) % 2 ? '#7df0ff' : '#3bb8e8');
+  }
+}
+function blasterIcon(px: (x: number, y: number, c: string) => void): void {
+  for (let x = 3; x < 14; x++) { px(x, 6, '#566'); px(x, 7, '#788'); px(x, 8, '#455'); }
+  for (let y = 9; y < 13; y++) { px(4, y, '#344'); px(5, y, '#455'); }
+  px(13, 7, '#7df0ff'); px(14, 7, '#7df0ff');
+}
+
+function mat(id: number, name: string, icon: ItemDef['icon'], stack = 99): ItemDef {
+  return { id, name, stack, icon };
+}
+function tdef(id: number, name: string, t: ToolDef, icon: ItemDef['icon']): ItemDef {
+  return { id, name, stack: 1, tool: t, icon };
+}
+function fdef(id: number, name: string, food: number, icon: ItemDef['icon']): ItemDef {
+  return { id, name, stack: 16, food, icon };
+}
+function adef(id: number, name: string, slot: NonNullable<ItemDef['slot']>, armor: number, icon: ItemDef['icon']): ItemDef {
+  return { id, name, stack: 1, slot, armor, icon };
+}
+
+// ---------- food / armor icon painters ----------
+function meatIcon(raw: boolean): ItemDef['icon'] {
+  const meat = raw ? '#d05858' : '#9a5a30';
+  const edge = raw ? '#a83838' : '#6a3a1a';
+  return (px) => {
+    for (let y = 4; y < 13; y++) for (let x = 3; x < 13; x++) {
+      if ((x - 8) * (x - 8) / 2 + (y - 8.5) * (y - 8.5) < 11) px(x, y, (x + y) % 4 === 0 ? edge : meat);
+    }
+    px(12, 4, '#e8e0d0'); px(13, 3, '#e8e0d0'); // bone tip
+  };
+}
+function bandageIcon(px: (x: number, y: number, c: string) => void): void {
+  for (let y = 5; y < 11; y++) for (let x = 3; x < 13; x++) px(x, y, (x + y) % 3 === 0 ? '#d8d8d8' : '#f0f0f0');
+  px(7, 7, '#f06a6a'); px(8, 7, '#f06a6a'); px(7, 8, '#f06a6a'); px(8, 8, '#f06a6a');
+}
+function helmIcon(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (let y = 4; y < 8; y++) for (let x = 4; x < 12; x++) px(x, y, c1);
+    for (let y = 8; y < 11; y++) { px(4, y, c2); px(5, y, c2); px(10, y, c2); px(11, y, c2); }
+    for (let x = 4; x < 12; x++) px(x, 4, c2);
+  };
+}
+function chestIcon(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (let y = 4; y < 13; y++) for (let x = 5; x < 11; x++) px(x, y, c1);
+    for (let y = 4; y < 9; y++) { px(3, y, c2); px(4, y, c2); px(11, y, c2); px(12, y, c2); }
+    for (let x = 5; x < 11; x++) px(x, 4, c2);
+  };
+}
+function legsIcon(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (let x = 4; x < 12; x++) { px(x, 3, c2); px(x, 4, c1); }
+    for (let y = 5; y < 13; y++) { px(4, y, c1); px(5, y, c1); px(10, y, c1); px(11, y, c1); }
+  };
+}
+function bootsIcon(c1: string, c2: string): ItemDef['icon'] {
+  return (px) => {
+    for (const ox of [3, 9]) {
+      for (let y = 6; y < 10; y++) { px(ox + 1, y, c1); px(ox + 2, y, c1); }
+      for (let x = ox; x < ox + 4; x++) { px(x, 10, c2); px(x, 11, c2); }
+    }
+  };
+}
+
+export const ITEMS: Record<number, ItemDef> = {
+  [Item.Stick]: mat(Item.Stick, 'Stick', stickIcon),
+  [Item.EmberCoal]: mat(Item.EmberCoal, 'Ember Coal', lump('#2c2828', '#ff8c32')),
+  [Item.RawIron]: mat(Item.RawIron, 'Raw Rust Iron', lump('#9c7560', '#c48c64')),
+  [Item.IronIngot]: mat(Item.IronIngot, 'Rust Iron Ingot', ingot('#c0a08c', '#e0c0a8')),
+  [Item.RawGold]: mat(Item.RawGold, 'Raw Sun Gold', lump('#c8a040', '#ffe080')),
+  [Item.GoldIngot]: mat(Item.GoldIngot, 'Sun Gold Ingot', ingot('#f0c850', '#ffe890')),
+  [Item.CrystalShard]: mat(Item.CrystalShard, 'Crystal Shard', shard('#5cd6f0', '#bdf8ff')),
+  [Item.VoidShard]: mat(Item.VoidShard, 'Void Shard', shard('#8a50d0', '#c890ff')),
+  [Item.LeafFiber]: mat(Item.LeafFiber, 'Leaf Fiber', (px) => {
+    for (let i = 0; i < 12; i++) { px(2 + i, 12 - (i % 4), '#5cb84a'); px(2 + i, 8 + (i % 3), '#479038'); }
+  }),
+
+  [Item.WoodPickaxe]: tdef(Item.WoodPickaxe, 'Wooden Pickaxe', tool('pickaxe', 1, 2, 60, 2), pickIcon('#a87f4d', '#8a6437')),
+  [Item.StonePickaxe]: tdef(Item.StonePickaxe, 'Stone Pickaxe', tool('pickaxe', 2, 3.5, 130, 3), pickIcon('#9a9aa5', '#7d7d88')),
+  [Item.IronPickaxe]: tdef(Item.IronPickaxe, 'Iron Pickaxe', tool('pickaxe', 3, 5.5, 280, 4), pickIcon('#d0b29c', '#b09078')),
+  [Item.GoldPickaxe]: tdef(Item.GoldPickaxe, 'Gold Pickaxe', tool('pickaxe', 3, 8, 120, 3), pickIcon('#f0c850', '#c89c30')),
+  [Item.CrystalPickaxe]: tdef(Item.CrystalPickaxe, 'Crystal Pickaxe', tool('pickaxe', 4, 9, 600, 5), pickIcon('#7df0ff', '#3bb8e8')),
+  [Item.WoodAxe]: tdef(Item.WoodAxe, 'Wooden Axe', tool('axe', 1, 2, 60, 3), axeIcon('#a87f4d', '#8a6437')),
+  [Item.StoneAxe]: tdef(Item.StoneAxe, 'Stone Axe', tool('axe', 2, 3.5, 130, 4), axeIcon('#9a9aa5', '#7d7d88')),
+  [Item.Shovel]: tdef(Item.Shovel, 'Shovel', tool('shovel', 1, 3, 100, 2), shovelIcon),
+  [Item.Sword]: tdef(Item.Sword, 'Iron Sword', tool('sword', 3, 1.5, 250, 7), swordIcon('#d8dce4', '#7a5a36')),
+  [Item.Dagger]: tdef(Item.Dagger, 'Shadow Dagger', tool('sword', 2, 1.5, 180, 5), swordIcon('#9a8ab8', '#3a3550')),
+  [Item.Staff]: tdef(Item.Staff, 'Apprentice Staff', tool('staff', 1, 1, 200, 4), staffIcon),
+  [Item.Blaster]: tdef(Item.Blaster, 'Spark Blaster', tool('gun', 1, 1, 200, 5), blasterIcon),
+  [Item.Wand]: tdef(Item.Wand, 'Mender Wand', tool('staff', 1, 1, 220, 3), (px) => {
+    for (let i = 0; i < 10; i++) px(4 + i, 14 - i, '#c8b890');
+    for (let y = 1; y < 6; y++) for (let x = 10; x < 15; x++) {
+      if ((x - 12) * (x - 12) + (y - 3) * (y - 3) < 5) px(x, y, (x + y) % 2 ? '#8df06a' : '#4ec048');
+    }
+  }),
+  [Item.FossilShard]: mat(Item.FossilShard, 'Fossil Shard', shard('#d8c090', '#fff0c8')),
+  [Item.AmberResin]: mat(Item.AmberResin, 'Amber Resin', shard('#ffb030', '#ffe080')),
+  [Item.PrimalHide]: mat(Item.PrimalHide, 'Primal Hide', lump('#7a4a2a', '#a87848')),
+  [Item.ScrapIron]: mat(Item.ScrapIron, 'Scrap Iron', lump('#7f8588', '#c0c8c8')),
+  [Item.AmmoCasing]: mat(Item.AmmoCasing, 'Ammo Casing', ingot('#c89a40', '#ffe080')),
+  [Item.FuelCell]: mat(Item.FuelCell, 'Fuel Cell', shard('#d85030', '#ffb070')),
+  [Item.InfectedTissue]: mat(Item.InfectedTissue, 'Infected Tissue', lump('#6fa85a', '#b6ff70')),
+  [Item.MedScrap]: mat(Item.MedScrap, 'Med Scrap', lump('#e8e8e8', '#f06a6a')),
+  [Item.CannedFood]: mat(Item.CannedFood, 'Canned Food', ingot('#9aa0a8', '#d8dce4')),
+  [Item.SilverOre]: mat(Item.SilverOre, 'Silver Ore', lump('#aeb8c8', '#ffffff')),
+  [Item.MagicCrystal]: mat(Item.MagicCrystal, 'Magic Crystal', shard('#9a70ff', '#e0d0ff')),
+  [Item.AncientRelic]: mat(Item.AncientRelic, 'Ancient Relic', ingot('#b89048', '#ffe0a0')),
+  [Item.EnergyCore]: mat(Item.EnergyCore, 'Energy Core', shard('#40f0ff', '#c8ffff')),
+  [Item.CircuitBoard]: mat(Item.CircuitBoard, 'Circuit Board', ingot('#305840', '#70f0a0')),
+  [Item.PlasmaCell]: mat(Item.PlasmaCell, 'Plasma Cell', shard('#ff50d0', '#ffd0f0')),
+  [Item.RawMeat]: fdef(Item.RawMeat, 'Raw Meat', 0.1, meatIcon(true)),
+  [Item.CookedMeat]: fdef(Item.CookedMeat, 'Cooked Meat', 0.35, meatIcon(false)),
+  [Item.Bandage]: fdef(Item.Bandage, 'Bandage', 0.3, bandageIcon),
+  [Item.LeatherCap]: adef(Item.LeatherCap, 'Hide Cap', 'head', 0.04, helmIcon('#a87848', '#7a4a2a')),
+  [Item.LeatherTunic]: adef(Item.LeatherTunic, 'Hide Tunic', 'body', 0.06, chestIcon('#a87848', '#7a4a2a')),
+  [Item.LeatherPants]: adef(Item.LeatherPants, 'Hide Pants', 'legs', 0.05, legsIcon('#a87848', '#7a4a2a')),
+  [Item.LeatherBoots]: adef(Item.LeatherBoots, 'Hide Boots', 'boots', 0.03, bootsIcon('#a87848', '#7a4a2a')),
+  [Item.IronHelmet]: adef(Item.IronHelmet, 'Iron Helmet', 'head', 0.07, helmIcon('#d0b29c', '#8a7060')),
+  [Item.IronChestplate]: adef(Item.IronChestplate, 'Iron Chestplate', 'body', 0.1, chestIcon('#d0b29c', '#8a7060')),
+  [Item.IronLeggings]: adef(Item.IronLeggings, 'Iron Leggings', 'legs', 0.08, legsIcon('#d0b29c', '#8a7060')),
+  [Item.IronBoots]: adef(Item.IronBoots, 'Iron Boots', 'boots', 0.05, bootsIcon('#d0b29c', '#8a7060')),
+  [Item.WoodSword]: tdef(Item.WoodSword, 'Wooden Sword', tool('sword', 1, 1.5, 60, 4), swordIcon('#a87f4d', '#8a6437')),
+  [Item.StoneSword]: tdef(Item.StoneSword, 'Stone Sword', tool('sword', 2, 1.5, 130, 5), swordIcon('#9a9aa5', '#7d7d88')),
+  [Item.SoulShard]: mat(Item.SoulShard, 'Soul Shard', shard('#b890ff', '#f0e8ff')),
+  [Item.CursedWood]: mat(Item.CursedWood, 'Cursed Wood', lump('#2b2230', '#6a4878')),
+  [Item.MoonHerb]: mat(Item.MoonHerb, 'Moon Herb', shard('#b8d8c8', '#ffffff')),
+};
+
+export function itemName(id: number): string {
+  return ITEMS[id]?.name ?? BLOCKS[id]?.name ?? '???';
+}
+
+export function itemStack(id: number): number {
+  return ITEMS[id]?.stack ?? 99;
+}
+
+export function toolOf(id: number | null | undefined): ToolDef {
+  return (id != null && ITEMS[id]?.tool) || HAND;
+}
+
+export function isPlaceable(id: number): boolean {
+  return id > 0 && id < 100 && !!BLOCKS[id];
+}
+
+// ---------- mining logic ----------
+export interface BreakInfo {
+  time: number;       // seconds to break
+  drops: boolean;     // whether the block yields its drop
+  breakable: boolean;
+}
+
+export function breakInfo(blockId: number, heldItem: number | null): BreakInfo {
+  const def = BLOCKS[blockId];
+  if (!def) return { time: Infinity, drops: false, breakable: false };
+  if (def.requiredTier >= 99) return { time: Infinity, drops: false, breakable: false };
+  const t = toolOf(heldItem);
+  const effective = EFFECTIVE[t.kind].includes(def.material);
+  let time = def.hardness;
+  if (effective) time = def.hardness / t.speed;
+  if (t.tier < def.requiredTier) time = def.hardness * (effective ? 1.5 : 3);
+  return { time, drops: t.tier >= def.requiredTier, breakable: true };
+}
+
+/** What item(s) a broken block yields. rand in [0,1). */
+export function dropFor(blockId: number, heldItem: number | null, rand: number): { item: number; count: number } | null {
+  const info = breakInfo(blockId, heldItem);
+  if (!info.drops) return null;
+  switch (blockId) {
+    case Block.Grass: return { item: Block.Dirt, count: 1 };
+    case Block.Leaves:
+      if (rand < 0.25) return { item: Item.Stick, count: 1 };
+      if (rand < 0.45) return { item: Item.LeafFiber, count: 1 };
+      return null;
+    case Block.Glass: return null; // shatters
+    case Block.EmberOre: return { item: Item.EmberCoal, count: 1 + (rand < 0.3 ? 1 : 0) };
+    case Block.IronOre: return { item: Item.RawIron, count: 1 };
+    case Block.GoldOre: return { item: Item.RawGold, count: 1 };
+    case Block.VoidOre: return { item: Item.VoidShard, count: 1 };
+    case Block.Crystal: return { item: Item.CrystalShard, count: 1 + (rand < 0.5 ? 1 : 0) };
+    case Block.Snow: return null;
+    default: return { item: blockId, count: 1 };
+  }
+}
+
+// ---------- icons ----------
+const iconCache = new Map<string, HTMLCanvasElement>();
+
+/** Crisp icon for any item id: block items use atlas tiles, others use pixel painters. */
+export function itemIcon(id: number, atlas: Atlas, size: number): HTMLCanvasElement {
+  const key = `${id}:${size}`;
+  const hit = iconCache.get(key);
+  if (hit) return hit;
+
+  let c: HTMLCanvasElement;
+  if (id < 100 && BLOCKS[id]) {
+    c = atlas.icon(BLOCKS[id].tiles.side, size);
+  } else {
+    c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d')!;
+    const s = size / 16;
+    ITEMS[id]?.icon?.((x, y, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.floor(x * s), Math.floor(y * s), Math.ceil(s), Math.ceil(s));
+    });
+  }
+  iconCache.set(key, c);
+  return c;
+}

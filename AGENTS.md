@@ -1,6 +1,6 @@
 # Vyrthlands
 
-Browser voxel survival RPG. Floating-islands theme with glowing Sky Crystal blocks. NOT a Minecraft clone — no Minecraft assets, names, or copied UI.
+Browser voxel sandbox game. Floating-islands theme with glowing Sky Crystal blocks. NOT a Minecraft clone — no Minecraft assets, names, or copied UI.
 
 ## Stack
 - Vite + TypeScript + Three.js (no framework)

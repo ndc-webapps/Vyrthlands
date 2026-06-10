@@ -13,6 +13,7 @@ export class Player {
   pitch = 0;
   flying = false;
   onGround = false;
+  speedMult = 1; // role/equipment movement modifier
 
   keys = new Set<string>();
 
@@ -75,7 +76,7 @@ export class Player {
       if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) vy -= speed;
       this.velocity.y = vy;
     } else {
-      const speed = WALK_SPEED;
+      const speed = WALK_SPEED * this.speedMult;
       // smooth horizontal accel
       const accel = this.onGround ? 14 : 5;
       this.velocity.x += (wx * speed - this.velocity.x) * Math.min(1, accel * dt);
