@@ -595,7 +595,20 @@ function saveCloud(silent = false): void {
     .catch(() => { if (!silent) hud.toast('Cloud save failed'); });
 }
 
-window.addEventListener('beforeunload', () => {
+// Block accidental refresh while in a world (F5 / Ctrl+R), capture phase so
+// it fires even while the chat input has focus.
+document.addEventListener('keydown', (e) => {
+  if (!running) return;
+  if (e.code === 'F5' || ((e.ctrlKey || e.metaKey) && e.code === 'KeyR')) {
+    e.preventDefault();
+    e.stopPropagation();
+    hud.toast('Refresh is disabled in game — use the menu to quit');
+  }
+}, true);
+
+window.addEventListener('beforeunload', (e) => {
+  // browser-chrome refresh/close while in a world: ask for confirmation
+  if (running) e.preventDefault();
   if (!currentServer || !world || !player || !inventory) return;
   const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
     role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
@@ -806,6 +819,8 @@ if (isTouch) document.body.classList.add('touch-mode');
 // ---------- Pointer lock / pause / UI ----------
 function requestPointerLock(): void {
   if (isTouch) return; // touch devices play without pointer lock
+  // drop focus from any menu button so a later Enter press can't re-click it
+  (document.activeElement as HTMLElement | null)?.blur?.();
   canvas.requestPointerLock();
 }
 
@@ -815,6 +830,7 @@ document.addEventListener('pointerlockchange', () => {
   if (!running) return;
   if (uiOpen) return; // inventory overlay manages its own state
   if (dead) return;   // death screen owns the pause until Respawn
+  if (chat.isOpen) return; // chat releases the pointer on purpose — not a pause
   paused = !locked;
   pauseMenu.classList.toggle('hidden', locked);
   if (paused) {
