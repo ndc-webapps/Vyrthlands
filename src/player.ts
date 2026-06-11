@@ -14,6 +14,8 @@ export class Player {
   flying = false;
   onGround = false;
   speedMult = 1; // role/equipment movement modifier
+  private fallPeakY = 0;     // highest Y while airborne
+  private landedBlocks = 0;  // fall height of the most recent landing
 
   keys = new Set<string>();
 
@@ -23,6 +25,8 @@ export class Player {
     const y = this.world.surfaceY(x, z);
     this.position.set(x + 0.5, Math.min(y, WORLD_HEIGHT - 4), z + 0.5);
     this.velocity.set(0, 0, 0);
+    this.fallPeakY = this.position.y;
+    this.landedBlocks = 0;
     this.yaw = Math.PI * 0.25;
     this.pitch = 0;
   }
@@ -49,6 +53,14 @@ export class Player {
   toggleFly(): void {
     this.flying = !this.flying;
     this.velocity.y = 0;
+    this.fallPeakY = this.position.y;
+  }
+
+  /** Blocks fallen on the most recent landing; reading clears it. */
+  consumeLanding(): number {
+    const v = this.landedBlocks;
+    this.landedBlocks = 0;
+    return v;
   }
 
   update(dt: number): void {
@@ -76,7 +88,8 @@ export class Player {
       if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) vy -= speed;
       this.velocity.y = vy;
     } else {
-      const speed = WALK_SPEED * this.speedMult;
+      const sprinting = (this.keys.has('ControlLeft') || this.keys.has('ControlRight')) && fwd > 0;
+      const speed = WALK_SPEED * this.speedMult * (sprinting ? 1.35 : 1);
       // smooth horizontal accel
       const accel = this.onGround ? 14 : 5;
       this.velocity.x += (wx * speed - this.velocity.x) * Math.min(1, accel * dt);
@@ -131,10 +144,16 @@ export class Player {
     let ny = p.y + this.velocity.y * dt;
     this.onGround = false;
     if (this.collides(p.x, ny, p.z)) {
-      if (this.velocity.y < 0) this.onGround = true;
+      if (this.velocity.y < 0) {
+        this.onGround = true;
+        // record fall height for fall damage (ignored while flying)
+        if (!this.flying) this.landedBlocks = Math.max(0, this.fallPeakY - p.y);
+        this.fallPeakY = p.y;
+      }
       this.velocity.y = 0;
     } else {
       p.y = ny;
+      if (p.y > this.fallPeakY || this.onGround) this.fallPeakY = p.y;
     }
   }
 

@@ -79,7 +79,7 @@ let meleeCooldown = 0;
 const hud = new HUD(atlas);
 const invUI = new InventoryUI(atlas);
 const auth = new AuthStore();
-hud.onSelect = (itemId) => viewModel.setHeldBlock(itemId && itemId < 100 ? itemId : Block.Air);
+hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
 invUI.onClose = () => {
   uiOpen = false;
@@ -306,6 +306,7 @@ function startGame(fresh: boolean): void {
   effects.speedT = 0;
   skillCooldowns = [0, 0];
   meleeCooldown = 0;
+  air = 1;
   mobs.clear();
   projectiles.clear();
 
@@ -429,7 +430,11 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ') { castSkill(0); e.preventDefault(); return; }
   if (e.code === 'KeyE' || e.code === 'KeyR') { castSkill(1); e.preventDefault(); return; }
   player.keys.add(e.code);
-  if (e.code === 'KeyF') player.toggleFly();
+  if (e.code === 'KeyF') {
+    if (mode === 'creative') player.toggleFly();
+    else if (player.flying) player.toggleFly(); // never stay airborne in survival
+    else hud.toast('No flying in Survival');
+  }
   if (e.code.startsWith('Digit')) {
     hud.selectDigit(parseInt(e.code.slice(5), 10));
   }
@@ -705,7 +710,8 @@ function updateInteraction(dt: number): void {
   }
 }
 
-/** Lava contact + regen + death. */
+/** Lava + drowning + fall damage + regen + death. */
+let air = 1; // 0..1, ~10s of breath under water
 function updateSurvival(dt: number): void {
   if (!world || !player) return;
   const p = player.position;
@@ -715,10 +721,29 @@ function updateSurvival(dt: number): void {
   }
   const eyeY = p.y + 1.62;
   const inWater = world.getBlock(Math.floor(p.x), Math.floor(eyeY), Math.floor(p.z)) === Block.Water;
+  const feetInWater = world.getBlock(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)) === Block.Water;
+
+  // fall damage: hurts past 3.5 blocks, water landings are safe
+  const fell = player.consumeLanding();
+  if (fell > 3.5 && !feetInWater && !inLava) {
+    applyDamage((fell - 3.5) * 0.06);
+    hud.toast('Ouch! Fall damage');
+  }
+
+  // drowning: ~10s of air, then it hurts
+  if (inWater) {
+    const hadAir = air > 0;
+    air = Math.max(0, air - dt / 10);
+    if (air <= 0) {
+      health -= 0.12 * dt;
+      if (hadAir) hud.toast('Drowning!');
+    }
+  } else {
+    air = Math.min(1, air + dt / 3);
+  }
 
   if (inLava) health -= 0.35 * dt;
-  else if (inWater) health -= 0.06 * dt;
-  else health += (stats.regenPerSec + (effects.regenBoostT > 0 ? 0.08 : 0)) * dt;
+  else if (!inWater) health += (stats.regenPerSec + (effects.regenBoostT > 0 ? 0.08 : 0)) * dt;
 
   health = Math.max(0, Math.min(1, health));
   mana = Math.min(1, mana + (18 * stats.manaRegenMult / stats.manaMax) * dt);
@@ -727,6 +752,7 @@ function updateSurvival(dt: number): void {
 
   if (health <= 0) {
     respawn();
+    air = 1;
     hud.toast(inLava ? 'You burned in lava! Respawned.' : 'You died! Respawned.');
   }
 }
@@ -804,6 +830,7 @@ if (import.meta.env.DEV) {
     castSkill,
     tryEat,
     applyDamage,
+    get viewModel() { return viewModel; },
     get state() { return { mode, role, health, mana, spawnPoint, uiOpen }; },
     setMode: (m: GameMode) => { mode = m; },
     setRole: (r: RoleId) => { role = r; },

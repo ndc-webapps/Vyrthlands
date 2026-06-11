@@ -1,19 +1,22 @@
 import * as THREE from 'three';
 import { BLOCKS } from './blocks';
 import { Atlas, Tile } from './textures';
+import { ITEMS, itemIcon } from './items';
 
 /**
- * First-person view model: arm + held block attached to the camera,
- * with swing animation (mining/placing) and walk bob.
+ * First-person view model: arm + held block or item sprite attached to
+ * the camera, with swing animation (mining/placing) and walk bob.
  */
 export class ViewModel {
   private group = new THREE.Group();
   private swingGroup = new THREE.Group();
   private held: THREE.Mesh;
+  private heldSprite: THREE.Mesh;       // flat pixel sprite for tools/items
   private swingT = 1; // 0..1 animating, >=1 idle
   private bobT = 0;
   swinging = false; // keep re-triggering while held (mining)
   private tileTextures = new Map<Tile, THREE.Texture>();
+  private itemTextures = new Map<number, THREE.Texture>();
 
   constructor(camera: THREE.PerspectiveCamera, private atlas: Atlas) {
     camera.add(this.group);
@@ -43,6 +46,16 @@ export class ViewModel {
     this.held.position.set(-0.04, 0.1, -0.08);
     this.held.rotation.set(0.35, 0.7, 0.1);
     this.swingGroup.add(this.held);
+
+    // held tool/item: flat pixel sprite, angled like a gripped tool
+    this.heldSprite = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.46, 0.46),
+      new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1, side: THREE.DoubleSide })
+    );
+    this.heldSprite.position.set(-0.06, 0.16, -0.06);
+    this.heldSprite.rotation.set(0.15, -0.45, -0.5);
+    this.heldSprite.visible = false;
+    this.swingGroup.add(this.heldSprite);
   }
 
   private tileTexture(tile: Tile): THREE.Texture {
@@ -56,6 +69,34 @@ export class ViewModel {
       this.tileTextures.set(tile, tex);
     }
     return tex;
+  }
+
+  /** Show whatever is selected: block cube, item sprite, or empty hand. */
+  setHeldItem(id: number): void {
+    if (id > 0 && id < 100 && BLOCKS[id]) {
+      this.heldSprite.visible = false;
+      this.setHeldBlock(id);
+      return;
+    }
+    this.held.visible = false;
+    const def = ITEMS[id];
+    if (!def?.icon) {
+      this.heldSprite.visible = false;
+      return;
+    }
+    let tex = this.itemTextures.get(id);
+    if (!tex) {
+      tex = new THREE.CanvasTexture(itemIcon(id, this.atlas, 32));
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      tex.generateMipmaps = false;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      this.itemTextures.set(id, tex);
+    }
+    const mat = this.heldSprite.material as THREE.MeshBasicMaterial;
+    mat.map = tex;
+    mat.needsUpdate = true;
+    this.heldSprite.visible = true;
   }
 
   setHeldBlock(id: number): void {
