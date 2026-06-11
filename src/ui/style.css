@@ -1360,15 +1360,19 @@ button.loading { opacity: 0.6; pointer-events: none; }
   .server-card { flex-direction: column; align-items: flex-start; }
 }
 
-/* ---------- password show/hide ---------- */
-.pw-row { display: flex; gap: 8px; align-items: stretch; }
-.pw-row input { flex: 1; min-width: 0; }
+/* ---------- password show/hide (eye icon inside the field) ---------- */
+.pw-row { position: relative; display: block; }
+.pw-row input { width: 100%; padding-right: 44px; box-sizing: border-box; }
 .pw-eye {
-  flex: 0 0 auto; padding: 0 14px; border-radius: 10px; cursor: pointer;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
-  color: rgba(232,236,244,0.8); font-weight: 700; font-size: 12px;
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; padding: 5px; border: none; border-radius: 8px;
+  background: transparent; cursor: pointer; color: rgba(232,236,244,0.55);
+  display: flex; align-items: center; justify-content: center;
 }
-.pw-eye:hover { border-color: rgba(94,234,212,0.5); color: #5eead4; }
+.pw-eye:hover { color: #5eead4; background: rgba(255,255,255,0.06); }
+.pw-eye svg { width: 22px; height: 22px; display: block; }
+/* beat the generic full-width modal button rule */
+.modal-panel button.pw-eye { width: 34px; min-height: 34px; }
 
 /* ---------- touch controls ---------- */
 #touch-controls { position: fixed; inset: 0; z-index: 6; pointer-events: none; }

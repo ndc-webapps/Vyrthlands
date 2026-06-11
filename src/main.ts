@@ -259,11 +259,21 @@ function updateAccountUI(): void {
   accountName.textContent = u ? u.username : '';
 }
 
-function toggleEye(btn: HTMLElement, input: HTMLInputElement): void {
-  const show = input.type === 'password';
-  input.type = show ? 'text' : 'password';
-  btn.textContent = show ? 'Hide' : 'Show';
+// open eye = password visible, closed eye = hidden
+const EYE_OPEN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_CLOSED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c2.5 3.5 5.5 5 9 5s6.5-1.5 9-5"/><path d="M5 12.5 3.5 15"/><path d="M19 12.5l1.5 2.5"/><path d="M12 14v3"/><path d="M8.5 13.5 7.5 16.5"/><path d="M15.5 13.5l1 3"/></svg>`;
+
+function setEye(btn: HTMLElement, input: HTMLInputElement): void {
+  const visible = input.type === 'text';
+  btn.innerHTML = visible ? EYE_OPEN : EYE_CLOSED;
+  btn.title = visible ? 'Hide password' : 'Show password';
 }
+function toggleEye(btn: HTMLElement, input: HTMLInputElement): void {
+  input.type = input.type === 'password' ? 'text' : 'password';
+  setEye(btn, input);
+}
+setEye(pwEye, loginPassword);
+setEye(pwEye2, loginConfirm);
 pwEye.addEventListener('click', () => toggleEye(pwEye, loginPassword));
 pwEye2.addEventListener('click', () => toggleEye(pwEye2, loginConfirm));
 
