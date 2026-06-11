@@ -1729,3 +1729,164 @@ body.touch-mode #controls-help { display: none; }
   #landing-page .reveal { opacity: 1; transform: none; }
   #landing-page .hero-title, #landing-page .hero::before { animation: none; }
 }
+
+/* ============================================================
+   LANDING V2 — refined: quieter, cleaner, real hierarchy.
+   Fixes the gradient-text clipping bug (width hugs the text).
+   ============================================================ */
+
+#landing-page {
+  --ink: #f2f5fa;
+  --ink-dim: #8b95ab;
+  --hairline: rgba(255, 255, 255, 0.07);
+  --surface: rgba(255, 255, 255, 0.025);
+}
+
+/* type system: Space Grotesk display, Inter body */
+#landing-page .hero-title,
+#landing-page .section-heading h2,
+#landing-page .cta-panel h2,
+#landing-page .brand-name {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* hero title: box hugs the glyphs so gradient never clips letters */
+#landing-page .hero-title {
+  width: max-content;
+  max-width: 100%;
+  font-size: clamp(52px, 7.2vw, 104px);
+  line-height: 1.02;
+  font-weight: 700;
+  padding-right: 0.06em; /* room for the final glyph's overhang */
+  background: linear-gradient(115deg, #f2f5fa 35%, #5eead4 55%, #9aa8ff 75%, #f2f5fa 95%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; /* the shorthand above resets these */
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+#landing-page .hero-subtitle {
+  font-size: clamp(20px, 2.3vw, 30px);
+  font-weight: 700;
+  color: #cdd8ea;
+  letter-spacing: -0.01em;
+}
+#landing-page .hero-text { font-size: 15.5px; line-height: 1.8; color: var(--ink-dim); max-width: 540px; }
+#landing-page .hero-badge {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: #5eead4;
+  letter-spacing: 0.22em;
+  font-size: 10.5px;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+#landing-page .hero-copy { gap: 18px; }
+
+/* stats row replaces the chip clutter */
+#landing-page .hero-stats {
+  display: flex;
+  gap: clamp(22px, 3.5vw, 48px);
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+#landing-page .stat { display: flex; flex-direction: column; gap: 2px; }
+#landing-page .stat strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 700;
+  color: var(--ink);
+}
+#landing-page .stat span {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* quieter, flatter cards: hairline + lift only */
+#landing-page .feature-card,
+#landing-page .world-card,
+#landing-page .role-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  backdrop-filter: none;
+}
+#landing-page .feature-card:hover,
+#landing-page .world-card:hover,
+#landing-page .role-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(94, 234, 212, 0.35);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+}
+#landing-page .world-card { border-top: 1px solid var(--hairline); }
+#landing-page .world-card::before {
+  content: '';
+  position: absolute; top: 0; left: 18px; right: auto;
+  width: 44px; height: 2px;
+  background: var(--wc, #5eead4);
+  border-radius: 0 0 2px 2px;
+}
+
+/* sections: generous, consistent rhythm */
+#landing-page .landing-section { padding-top: clamp(70px, 9vw, 130px); padding-bottom: clamp(30px, 4vw, 60px); }
+#landing-page .section-eyebrow {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #5eead4;
+  margin-bottom: 14px;
+}
+#landing-page .section-heading h2 { font-size: clamp(30px, 3.6vw, 46px); }
+#landing-page .section-heading p { color: var(--ink-dim); }
+
+/* hero scene: cleaner composition — drop the stray floaters */
+#landing-page .scene-block,
+#landing-page .floating-rock.rock-two { display: none; }
+#landing-page .hero-scene { border-radius: 16px; border-color: var(--hairline); }
+
+/* nav: lighter touch */
+#landing-page .landing-nav { background: rgba(5, 7, 12, 0.7); border-bottom: 1px solid var(--hairline); }
+#landing-page .ghost-btn { background: transparent; border-color: var(--hairline); }
+#landing-page .ghost-btn:hover { border-color: rgba(94, 234, 212, 0.45); background: rgba(94, 234, 212, 0.06); }
+
+/* footer */
+#landing-page .landing-footer { border-top: 1px solid var(--hairline); }
+
+/* ---------- responsive: pc / tablet / mobile ---------- */
+@media (max-width: 1100px) {
+  #landing-page .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  #landing-page .hero-scene { min-height: 460px; order: 2; }
+  #landing-page .hero-title { font-size: clamp(48px, 9.5vw, 92px); }
+}
+@media (max-width: 760px) {
+  #landing-page .nav-links { display: none; }
+  #landing-page .landing-nav { padding: 12px 16px; }
+  #landing-page .hero { padding: 20px 18px 48px; }
+  #landing-page .hero-actions button { flex: 1 1 100%; }
+  #landing-page .hero-scene { min-height: 340px; }
+  #landing-page .hero-stats { gap: 18px 28px; }
+  #landing-page .cta-panel { flex-direction: column; text-align: center; gap: 18px; }
+}
+@media (max-width: 480px) {
+  #landing-page .hero-title { font-size: clamp(40px, 12vw, 56px); }
+  #landing-page .hero-subtitle { font-size: 18px; }
+  #landing-page .hero-scene { min-height: 280px; }
+  #landing-page .stat strong { font-size: 24px; }
+}
+
+/* ---------- in-game HUD on small screens ---------- */
+@media (max-width: 640px) {
+  #hotbar { transform: translateX(-50%) scale(0.82); transform-origin: bottom center; }
+  #hearts-row, #vitality-row { bottom: 84px; }
+  #hearts-row .heart, #vitality-row .heart { width: 17px; height: 15px; }
+  #vitality-row { margin-left: 0; bottom: 104px; }
+  #day-indicator { font-size: 11px; padding: 3px 8px; }
+  #chat-box { width: 74vw; bottom: 140px; }
+  #controls-help { display: none; }
+  .panel, .panel-wide { padding: 22px 18px; width: 94vw; }
+  #skill-bar { transform: translateX(-50%) scale(0.85); }
+}
