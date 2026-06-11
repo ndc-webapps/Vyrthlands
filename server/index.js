@@ -128,8 +128,15 @@ app.get('/api/me', auth, (req, res) => res.json({ user: req.user }));
 app.get('/api/_debug', wrap(async (req, res) => {
   const url = process.env.DATABASE_URL || '';
   const host = url.replace(/^.*@/, '').replace(/\?.*$/, '');
-  const c = await db.get('SELECT count(*)::int AS n FROM users');
-  res.json({ engine: db.engine, dbHost: host || null, userCount: c?.n ?? null });
+  const c = await db.get('SELECT count(*) AS n FROM users');
+  res.json({
+    engine: db.engine,
+    hasDatabaseUrl: !!url,
+    urlLength: url.length,
+    dbHost: host || null,
+    userCount: c ? Number(c.n) : null,
+    envKeys: Object.keys(process.env).filter((k) => /DATABASE|PG|NEON/i.test(k)),
+  });
 }));
 
 // ---------- server (world/lobby) routes ----------
