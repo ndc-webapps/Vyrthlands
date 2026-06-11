@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "node server/index.js",
-    "start": "node server/index.js",
+    "server": "node --env-file-if-exists=.env server/index.js",
+    "start": "node --env-file-if-exists=.env server/index.js",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

@@ -1586,3 +1586,146 @@ body.touch-mode #controls-help { display: none; }
   padding: 8px 10px; outline: none; width: 100%;
 }
 #chat-input:focus { border-color: #7df0ff; }
+
+/* ============================================================
+   LANDING POLISH — premium / modern / cinematic / clean
+   ============================================================ */
+
+/* scroll-reveal */
+#landing-page .reveal { opacity: 0; transform: translateY(28px); }
+#landing-page .reveal-in {
+  opacity: 1; transform: none;
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#landing-page .feature-grid > *:nth-child(2).reveal-in,
+#landing-page .world-grid > *:nth-child(2).reveal-in,
+#landing-page .role-grid > *:nth-child(2).reveal-in { transition-delay: 0.08s; }
+#landing-page .feature-grid > *:nth-child(3).reveal-in,
+#landing-page .world-grid > *:nth-child(3).reveal-in,
+#landing-page .role-grid > *:nth-child(3).reveal-in { transition-delay: 0.16s; }
+#landing-page .feature-grid > *:nth-child(4).reveal-in,
+#landing-page .world-grid > *:nth-child(4).reveal-in,
+#landing-page .role-grid > *:nth-child(4).reveal-in { transition-delay: 0.24s; }
+#landing-page .feature-grid > *:nth-child(5).reveal-in,
+#landing-page .world-grid > *:nth-child(5).reveal-in,
+#landing-page .role-grid > *:nth-child(5).reveal-in { transition-delay: 0.32s; }
+#landing-page .feature-grid > *:nth-child(6).reveal-in,
+#landing-page .world-grid > *:nth-child(6).reveal-in { transition-delay: 0.4s; }
+
+/* cinematic hero title: gradient ink + slow shimmer */
+#landing-page .hero-title {
+  background: linear-gradient(115deg, #f0f4ff 25%, #5eead4 45%, #818cf8 65%, #f0f4ff 85%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: title-shimmer 9s ease-in-out infinite;
+}
+@keyframes title-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* drifting aurora behind the hero copy */
+#landing-page .hero::before {
+  content: '';
+  position: absolute; inset: -10% -5%;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 30% at 22% 30%, rgba(94, 234, 212, 0.10), transparent 70%),
+    radial-gradient(30% 26% at 70% 60%, rgba(129, 140, 248, 0.10), transparent 70%);
+  animation: aurora-drift 16s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(2%, 2%, 0) scale(1.06); }
+}
+
+/* button shine sweep (landing only) */
+#landing-page .primary, #landing-page .secondary {
+  position: relative; overflow: hidden;
+}
+#landing-page .primary::after {
+  content: '';
+  position: absolute; top: 0; left: -160%;
+  width: 55%; height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.65s ease;
+}
+#landing-page .primary:hover::after { left: 170%; }
+
+/* premium card treatment: glass, lift, glow edge */
+#landing-page .feature-card,
+#landing-page .world-card,
+#landing-page .role-card {
+  position: relative;
+  backdrop-filter: blur(10px);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.35s ease, box-shadow 0.35s ease;
+  will-change: transform;
+}
+#landing-page .feature-card:hover,
+#landing-page .world-card:hover,
+#landing-page .role-card:hover {
+  transform: translateY(-7px);
+  border-color: rgba(94, 234, 212, 0.45);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(94, 234, 212, 0.18),
+    0 0 44px rgba(94, 234, 212, 0.08);
+}
+
+/* per-realm accent strip on world cards */
+#landing-page .world-card { border-top: 2px solid var(--wc, rgba(94,234,212,0.35)); }
+#landing-page .world-card .card-label { color: var(--wc, #5eead4); }
+#landing-page .world-card.prehistoric { --wc: #8adf6a; }
+#landing-page .world-card.zombie { --wc: #b6ff70; }
+#landing-page .world-card.battlefront { --wc: #ffb060; }
+#landing-page .world-card.medieval { --wc: #c8a4ff; }
+#landing-page .world-card.cyberpunk { --wc: #ff6ad5; }
+#landing-page .world-card.haunted { --wc: #9ab8ff; }
+
+/* role cards: subtle role-colored ring on hover */
+#landing-page .role-card.assassin:hover { border-color: rgba(184, 144, 255, 0.55); }
+#landing-page .role-card.wizard:hover { border-color: rgba(125, 240, 255, 0.55); }
+#landing-page .role-card.swordsman:hover { border-color: rgba(255, 208, 112, 0.55); }
+#landing-page .role-card.healer:hover { border-color: rgba(141, 240, 106, 0.55); }
+#landing-page .role-card.gunner:hover { border-color: rgba(255, 144, 96, 0.55); }
+
+/* section headings: accent rule + tighter rhythm */
+#landing-page .section-heading h2 {
+  position: relative;
+  padding-bottom: 14px;
+}
+#landing-page .section-heading h2::after {
+  content: '';
+  position: absolute; left: 0; bottom: 0;
+  width: 56px; height: 3px;
+  background: linear-gradient(90deg, #5eead4, transparent);
+  border-radius: 2px;
+}
+
+/* nav links: animated underline */
+#landing-page .nav-links a { position: relative; padding-bottom: 4px; }
+#landing-page .nav-links a::after {
+  content: '';
+  position: absolute; left: 0; bottom: 0;
+  width: 0; height: 2px;
+  background: #5eead4;
+  transition: width 0.28s ease;
+}
+#landing-page .nav-links a:hover::after { width: 100%; }
+
+/* CTA panel: glow frame */
+#landing-page .cta-panel {
+  position: relative;
+  border: 1px solid rgba(94, 234, 212, 0.25);
+  box-shadow: inset 0 0 60px rgba(94, 234, 212, 0.05), 0 30px 80px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #landing-page .reveal { opacity: 1; transform: none; }
+  #landing-page .hero-title, #landing-page .hero::before { animation: none; }
+}

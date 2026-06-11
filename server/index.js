@@ -230,6 +230,11 @@ function broadcast(serverId, msg) {
 }
 
 wss.on('connection', async (ws, req) => {
+  // buffer anything sent while we're still authenticating (db roundtrips)
+  const early = [];
+  const buffer = (raw) => early.push(raw);
+  ws.on('message', buffer);
+
   const url = new URL(req.url, 'http://x');
   const user = await userBySession(url.searchParams.get('token')).catch(() => null);
   const serverId = url.searchParams.get('server');
@@ -237,13 +242,14 @@ wss.on('connection', async (ws, req) => {
     ws.close(4001, 'Unauthorized');
     return;
   }
+  ws.off('message', buffer);
   let room = rooms.get(serverId);
   if (!room) rooms.set(serverId, (room = new Map()));
   room.set(user.id, { ws, username: user.username });
   broadcast(serverId, { type: 'join', username: user.username, players: roomUsers(serverId) });
 
   let lastChat = 0;
-  ws.on('message', (raw) => {
+  const handle = (raw) => {
     // live relay: positions, chat, block edits
     try {
       const msg = JSON.parse(raw.toString());
@@ -265,7 +271,9 @@ wss.on('connection', async (ws, req) => {
         }
       }
     } catch { /* ignore malformed packets */ }
-  });
+  };
+  ws.on('message', handle);
+  for (const raw of early) handle(raw); // replay anything sent during auth
 
   ws.on('close', () => {
     const r = rooms.get(serverId);

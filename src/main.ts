@@ -518,6 +518,23 @@ btnJoinCode.addEventListener('click', () => {
 // restore session on page load
 void auth.restore().then(() => updateAccountUI());
 
+// landing page: reveal sections as they scroll into view
+{
+  const revealEls = document.querySelectorAll(
+    '#landing-page .feature-card, #landing-page .world-card, #landing-page .role-card, #landing-page .section-heading, #landing-page .cta-panel'
+  );
+  revealEls.forEach((el) => el.classList.add('reveal'));
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('reveal-in');
+        io.unobserve(entry.target);
+      }
+    }
+  }, { threshold: 0.15 });
+  revealEls.forEach((el) => io.observe(el));
+}
+
 btnModeCreative.addEventListener('click', () => setTitleMode('creative'));
 btnModeSurvival.addEventListener('click', () => setTitleMode('survival'));
 function setTitleMode(m: GameMode): void {
