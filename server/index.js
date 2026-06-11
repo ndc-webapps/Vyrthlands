@@ -1,11 +1,10 @@
 /**
  * Vyrthlands backend: accounts, sessions, servers (worlds shared with
  * friends via invite codes), per-player progress, shared world edits,
- * and WebSocket presence. Express + built-in node:sqlite — no external
- * services required. Real password hashing (bcryptjs), token sessions.
+ * and WebSocket presence with live player positions.
+ * Storage: Postgres (DATABASE_URL, e.g. Neon) or local sqlite — see db.js.
  */
 import express from 'express';
-import { DatabaseSync } from 'node:sqlite';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import http from 'node:http';
@@ -13,40 +12,10 @@ import { WebSocketServer } from 'ws';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { openDb } from './db.js';
 
 const PORT = Number(process.env.PORT || 8081);
-const DB_PATH = process.env.DB_PATH || path.join(path.dirname(fileURLToPath(import.meta.url)), 'vyrthlands.db');
-
-const db = new DatabaseSync(DB_PATH);
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL COLLATE NOCASE,
-    email TEXT, pass_hash TEXT NOT NULL, avatar TEXT DEFAULT '',
-    created_at INTEGER NOT NULL, last_login INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS servers (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL,
-    world_type TEXT NOT NULL, mode TEXT NOT NULL, world_size TEXT NOT NULL,
-    seed INTEGER NOT NULL, max_players INTEGER NOT NULL DEFAULT 8,
-    invite_code TEXT UNIQUE NOT NULL, created_at INTEGER NOT NULL, last_played INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS server_members (
-    server_id TEXT NOT NULL, user_id TEXT NOT NULL, joined_at INTEGER NOT NULL,
-    PRIMARY KEY (server_id, user_id)
-  );
-  CREATE TABLE IF NOT EXISTS progress (
-    server_id TEXT NOT NULL, user_id TEXT NOT NULL,
-    data TEXT NOT NULL, updated_at INTEGER NOT NULL,
-    PRIMARY KEY (server_id, user_id)
-  );
-  CREATE TABLE IF NOT EXISTS world_state (
-    server_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL
-  );
-`);
+const db = await openDb();
 
 const app = express();
 app.use(express.json({ limit: '8mb' }));
@@ -75,42 +44,45 @@ function makeInviteCode() {
   return c;
 }
 
-function userBySession(token) {
+async function userBySession(token) {
   if (!token) return null;
-  const s = db.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token);
+  const s = await db.get('SELECT user_id FROM sessions WHERE token = $1', [token]);
   if (!s) return null;
-  return db.prepare('SELECT id, username, email, avatar, created_at, last_login FROM users WHERE id = ?').get(s.user_id) ?? null;
+  return db.get('SELECT id, username, email, avatar, created_at, last_login FROM users WHERE id = $1', [s.user_id]);
 }
 
 /** Auth middleware: Bearer token, or ?token= for sendBeacon routes. */
 function auth(req, res, next) {
   const h = req.headers.authorization;
   const token = (h && h.startsWith('Bearer ') ? h.slice(7) : null) || req.query.token;
-  const user = userBySession(token);
-  if (!user) return fail(res, 401, 'Not logged in');
-  req.user = user;
-  next();
+  userBySession(token).then((user) => {
+    if (!user) return fail(res, 401, 'Not logged in');
+    req.user = user;
+    next();
+  }).catch(() => fail(res, 500, 'Auth failed'));
 }
 
-function memberOf(serverId, userId) {
-  return !!db.prepare('SELECT 1 FROM server_members WHERE server_id = ? AND user_id = ?').get(serverId, userId);
+async function memberOf(serverId, userId) {
+  return !!(await db.get('SELECT 1 AS x FROM server_members WHERE server_id = $1 AND user_id = $2', [serverId, userId]));
 }
 
-function serverInfo(row, userId) {
-  const members = db.prepare(
-    'SELECT u.id, u.username FROM server_members m JOIN users u ON u.id = m.user_id WHERE m.server_id = ?'
-  ).all(row.id);
+async function serverInfo(row, userId) {
+  const members = await db.all(
+    'SELECT u.id, u.username FROM server_members m JOIN users u ON u.id = m.user_id WHERE m.server_id = $1', [row.id]
+  );
   return {
     id: row.id, name: row.name, ownerId: row.owner_id, isOwner: row.owner_id === userId,
-    worldType: row.world_type, mode: row.mode, worldSize: row.world_size, seed: row.seed,
+    worldType: row.world_type, mode: row.mode, worldSize: row.world_size, seed: Number(row.seed),
     maxPlayers: row.max_players, inviteCode: row.owner_id === userId ? row.invite_code : undefined,
-    createdAt: row.created_at, lastPlayed: row.last_played,
+    createdAt: Number(row.created_at), lastPlayed: Number(row.last_played),
     members, online: roomUsers(row.id).length,
   };
 }
 
+const wrap = (fn) => (req, res) => fn(req, res).catch((e) => { console.error(e); fail(res, 500, 'Server error'); });
+
 // ---------- account routes ----------
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', wrap(async (req, res) => {
   const { username, password, email } = req.body ?? {};
   if (typeof username !== 'string' || !/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
     return fail(res, 400, 'Username must be 3-16 letters, numbers, or _');
@@ -121,108 +93,117 @@ app.post('/api/register', async (req, res) => {
   if (email && (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email))) {
     return fail(res, 400, 'Invalid email address');
   }
-  if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {
-    return fail(res, 409, 'Username is already taken');
-  }
+  const existing = await db.get('SELECT 1 AS x FROM users WHERE LOWER(username) = LOWER($1)', [username]);
+  if (existing) return fail(res, 409, 'Username is already taken');
   const id = uid();
   const hash = await bcrypt.hash(password, 10);
-  db.prepare('INSERT INTO users (id, username, email, pass_hash, created_at, last_login) VALUES (?,?,?,?,?,?)')
-    .run(id, username, email ?? null, hash, now(), now());
+  await db.run('INSERT INTO users (id, username, email, pass_hash, created_at, last_login) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, username, email ?? null, hash, now(), now()]);
   const token = uid();
-  db.prepare('INSERT INTO sessions (token, user_id, created_at) VALUES (?,?,?)').run(token, id, now());
+  await db.run('INSERT INTO sessions (token, user_id, created_at) VALUES ($1,$2,$3)', [token, id, now()]);
   res.json({ token, user: { id, username, email: email ?? null, avatar: '', createdAt: now() } });
-});
+}));
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', wrap(async (req, res) => {
   const { username, password } = req.body ?? {};
-  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(String(username ?? ''));
+  const row = await db.get('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [String(username ?? '')]);
   if (!row || !(await bcrypt.compare(String(password ?? ''), row.pass_hash))) {
     return fail(res, 401, 'Wrong username or password');
   }
-  db.prepare('UPDATE users SET last_login = ? WHERE id = ?').run(now(), row.id);
+  await db.run('UPDATE users SET last_login = $1 WHERE id = $2', [now(), row.id]);
   const token = uid();
-  db.prepare('INSERT INTO sessions (token, user_id, created_at) VALUES (?,?,?)').run(token, row.id, now());
-  res.json({ token, user: { id: row.id, username: row.username, email: row.email, avatar: row.avatar, createdAt: row.created_at } });
-});
+  await db.run('INSERT INTO sessions (token, user_id, created_at) VALUES ($1,$2,$3)', [token, row.id, now()]);
+  res.json({ token, user: { id: row.id, username: row.username, email: row.email, avatar: row.avatar, createdAt: Number(row.created_at) } });
+}));
 
-app.post('/api/logout', auth, (req, res) => {
+app.post('/api/logout', auth, wrap(async (req, res) => {
   const h = req.headers.authorization;
-  db.prepare('DELETE FROM sessions WHERE token = ?').run(h.slice(7));
+  await db.run('DELETE FROM sessions WHERE token = $1', [h.slice(7)]);
   res.json({ ok: true });
-});
+}));
 
 app.get('/api/me', auth, (req, res) => res.json({ user: req.user }));
 
 // ---------- server (world/lobby) routes ----------
-app.get('/api/servers', auth, (req, res) => {
-  const rows = db.prepare(
-    'SELECT s.* FROM servers s JOIN server_members m ON m.server_id = s.id WHERE m.user_id = ? ORDER BY s.last_played DESC'
-  ).all(req.user.id);
-  res.json({ servers: rows.map((r) => serverInfo(r, req.user.id)) });
-});
+app.get('/api/servers', auth, wrap(async (req, res) => {
+  const rows = await db.all(
+    'SELECT s.* FROM servers s JOIN server_members m ON m.server_id = s.id WHERE m.user_id = $1 ORDER BY s.last_played DESC',
+    [req.user.id]
+  );
+  res.json({ servers: await Promise.all(rows.map((r) => serverInfo(r, req.user.id))) });
+}));
 
-app.post('/api/servers', auth, (req, res) => {
+app.post('/api/servers', auth, wrap(async (req, res) => {
   const { name, worldType, mode, worldSize, seed, maxPlayers } = req.body ?? {};
   if (typeof name !== 'string' || name.trim().length < 1 || name.length > 32) {
     return fail(res, 400, 'Server name must be 1-32 characters');
   }
   const id = uid();
   const code = makeInviteCode();
-  db.prepare(`INSERT INTO servers (id, name, owner_id, world_type, mode, world_size, seed, max_players, invite_code, created_at, last_played)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(id, name.trim(), req.user.id, String(worldType ?? 'natural'), String(mode ?? 'survival'),
-      String(worldSize ?? 'medium'), Number(seed ?? 0) | 0, Math.min(16, Math.max(1, Number(maxPlayers ?? 8))), code, now(), now());
-  db.prepare('INSERT INTO server_members (server_id, user_id, joined_at) VALUES (?,?,?)').run(id, req.user.id, now());
-  const row = db.prepare('SELECT * FROM servers WHERE id = ?').get(id);
-  res.json({ server: serverInfo(row, req.user.id) });
-});
+  await db.run(
+    `INSERT INTO servers (id, name, owner_id, world_type, mode, world_size, seed, max_players, invite_code, created_at, last_played)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    [id, name.trim(), req.user.id, String(worldType ?? 'natural'), String(mode ?? 'survival'),
+      String(worldSize ?? 'medium'), Number(seed ?? 0) | 0, Math.min(16, Math.max(1, Number(maxPlayers ?? 8))), code, now(), now()]
+  );
+  await db.run('INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1,$2,$3)', [id, req.user.id, now()]);
+  const row = await db.get('SELECT * FROM servers WHERE id = $1', [id]);
+  res.json({ server: await serverInfo(row, req.user.id) });
+}));
 
-app.post('/api/servers/join', auth, (req, res) => {
+app.post('/api/servers/join', auth, wrap(async (req, res) => {
   const code = String(req.body?.code ?? '').trim().toUpperCase();
-  const row = db.prepare('SELECT * FROM servers WHERE invite_code = ?').get(code);
+  const row = await db.get('SELECT * FROM servers WHERE invite_code = $1', [code]);
   if (!row) return fail(res, 404, 'Invalid invite code');
-  const count = db.prepare('SELECT COUNT(*) AS n FROM server_members WHERE server_id = ?').get(row.id).n;
-  if (!memberOf(row.id, req.user.id) && count >= row.max_players) return fail(res, 403, 'Server is full');
-  db.prepare('INSERT OR IGNORE INTO server_members (server_id, user_id, joined_at) VALUES (?,?,?)').run(row.id, req.user.id, now());
-  res.json({ server: serverInfo(row, req.user.id) });
-});
+  const member = await memberOf(row.id, req.user.id);
+  const count = (await db.all('SELECT user_id FROM server_members WHERE server_id = $1', [row.id])).length;
+  if (!member && count >= row.max_players) return fail(res, 403, 'Server is full');
+  await db.run(
+    'INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1,$2,$3) ON CONFLICT (server_id, user_id) DO NOTHING',
+    [row.id, req.user.id, now()]
+  );
+  res.json({ server: await serverInfo(row, req.user.id) });
+}));
 
-app.get('/api/servers/:id', auth, (req, res) => {
-  if (!memberOf(req.params.id, req.user.id)) return fail(res, 403, 'Not a member of this server');
-  const row = db.prepare('SELECT * FROM servers WHERE id = ?').get(req.params.id);
+app.get('/api/servers/:id', auth, wrap(async (req, res) => {
+  if (!(await memberOf(req.params.id, req.user.id))) return fail(res, 403, 'Not a member of this server');
+  const row = await db.get('SELECT * FROM servers WHERE id = $1', [req.params.id]);
   if (!row) return fail(res, 404, 'Server not found');
-  res.json({ server: serverInfo(row, req.user.id) });
-});
+  res.json({ server: await serverInfo(row, req.user.id) });
+}));
 
 // ---------- progress + shared world state ----------
-app.get('/api/progress/:serverId', auth, (req, res) => {
-  if (!memberOf(req.params.serverId, req.user.id)) return fail(res, 403, 'Not a member of this server');
-  const p = db.prepare('SELECT data, updated_at FROM progress WHERE server_id = ? AND user_id = ?')
-    .get(req.params.serverId, req.user.id);
-  const w = db.prepare('SELECT data, updated_at FROM world_state WHERE server_id = ?').get(req.params.serverId);
+app.get('/api/progress/:serverId', auth, wrap(async (req, res) => {
+  if (!(await memberOf(req.params.serverId, req.user.id))) return fail(res, 403, 'Not a member of this server');
+  const p = await db.get('SELECT data FROM progress WHERE server_id = $1 AND user_id = $2', [req.params.serverId, req.user.id]);
+  const w = await db.get('SELECT data FROM world_state WHERE server_id = $1', [req.params.serverId]);
   res.json({
     progress: p ? JSON.parse(p.data) : null,
     world: w ? JSON.parse(w.data) : null,
   });
-});
+}));
 
-app.post('/api/progress/:serverId', auth, (req, res) => {
-  if (!memberOf(req.params.serverId, req.user.id)) return fail(res, 403, 'Not a member of this server');
+app.post('/api/progress/:serverId', auth, wrap(async (req, res) => {
+  if (!(await memberOf(req.params.serverId, req.user.id))) return fail(res, 403, 'Not a member of this server');
   const { progress, world } = req.body ?? {};
   const t = now();
   if (progress != null) {
-    db.prepare(`INSERT INTO progress (server_id, user_id, data, updated_at) VALUES (?,?,?,?)
-      ON CONFLICT(server_id, user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`)
-      .run(req.params.serverId, req.user.id, JSON.stringify(progress), t);
+    await db.run(
+      `INSERT INTO progress (server_id, user_id, data, updated_at) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (server_id, user_id) DO UPDATE SET data = $3, updated_at = $4`,
+      [req.params.serverId, req.user.id, JSON.stringify(progress), t]
+    );
   }
   if (world != null) {
-    db.prepare(`INSERT INTO world_state (server_id, data, updated_at) VALUES (?,?,?)
-      ON CONFLICT(server_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`)
-      .run(req.params.serverId, JSON.stringify(world), t);
+    await db.run(
+      `INSERT INTO world_state (server_id, data, updated_at) VALUES ($1,$2,$3)
+       ON CONFLICT (server_id) DO UPDATE SET data = $2, updated_at = $3`,
+      [req.params.serverId, JSON.stringify(world), t]
+    );
   }
-  db.prepare('UPDATE servers SET last_played = ? WHERE id = ?').run(t, req.params.serverId);
+  await db.run('UPDATE servers SET last_played = $1 WHERE id = $2', [t, req.params.serverId]);
   res.json({ ok: true, savedAt: t });
-});
+}));
 
 // serve the built game in production (npm run build first)
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
@@ -248,11 +229,11 @@ function broadcast(serverId, msg) {
   }
 }
 
-wss.on('connection', (ws, req) => {
+wss.on('connection', async (ws, req) => {
   const url = new URL(req.url, 'http://x');
-  const user = userBySession(url.searchParams.get('token'));
+  const user = await userBySession(url.searchParams.get('token')).catch(() => null);
   const serverId = url.searchParams.get('server');
-  if (!user || !serverId || !memberOf(serverId, user.id)) {
+  if (!user || !serverId || !(await memberOf(serverId, user.id))) {
     ws.close(4001, 'Unauthorized');
     return;
   }
@@ -262,11 +243,14 @@ wss.on('connection', (ws, req) => {
   broadcast(serverId, { type: 'join', username: user.username, players: roomUsers(serverId) });
 
   ws.on('message', (raw) => {
-    // position sync placeholder: relay to room (full gameplay sync = next phase)
+    // live position relay so friends can see each other move
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.type === 'pos') {
-        broadcast(serverId, { type: 'pos', username: user.username, x: msg.x, y: msg.y, z: msg.z });
+        broadcast(serverId, {
+          type: 'pos', username: user.username, role: msg.role,
+          x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw,
+        });
       }
     } catch { /* ignore malformed packets */ }
   });
@@ -282,5 +266,5 @@ wss.on('connection', (ws, req) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`Vyrthlands server on http://localhost:${PORT} (db: ${DB_PATH})`);
+  console.log(`Vyrthlands server on http://localhost:${PORT} (storage: ${db.engine})`);
 });

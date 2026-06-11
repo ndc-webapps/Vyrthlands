@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import {
   REACH, WORLD_SIZES, RENDER_DISTANCES, WorldSizeKey, RenderDistanceKey,
-  CREATIVE_BREAK_REPEAT, PLACE_REPEAT,
+  CREATIVE_BREAK_REPEAT, PLACE_REPEAT, THIRD_PERSON_DISTANCE,
 } from './config';
+import { PlayerModel } from './playerModel';
+import { RemotePlayers } from './remotePlayers';
 import { Block, BLOCKS } from './blocks';
 import { buildAtlas } from './textures';
 import { World } from './world/world';
@@ -47,7 +49,17 @@ const environment = new Environment(scene);
 const viewModel = new ViewModel(camera, atlas);
 const mobs = new MobManager(scene);
 const projectiles = new ProjectileManager(scene);
+const playerModel = new PlayerModel(scene);
+const remotes = new RemotePlayers(scene);
+let thirdPerson = false;
 viewModel.setVisible(false);
+
+function toggleThirdPerson(): void {
+  thirdPerson = !thirdPerson;
+  viewModel.setVisible(running && !thirdPerson);
+  playerModel.setVisible(running && thirdPerson);
+  hud.toast(thirdPerson ? 'Third-person view' : 'First-person view');
+}
 
 const highlight = new THREE.LineSegments(
   new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)),
@@ -73,6 +85,7 @@ let spawnPoint: { x: number; z: number } | null = null;
 let running = false;
 let paused = false;
 let uiOpen = false;
+let dead = false;
 const effects: ActiveEffects = { invulnT: 0, shieldT: 0, regenBoostT: 0, speedT: 0 };
 let skillCooldowns = [0, 0];
 let meleeCooldown = 0;
@@ -86,6 +99,7 @@ let currentServer: ServerInfo | null = null;  // cloud session (null = local/gue
 let creatingServer = false;                   // title screen is configuring a new cloud server
 let autosaveT = 0;
 let posSyncT = 0;
+let clockT = 0;
 hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
 invUI.onClose = () => {
@@ -142,6 +156,10 @@ const serverNameInput = document.getElementById('server-name-input') as HTMLInpu
 const titleScreen = document.getElementById('title-screen')!;
 const btnBackLanding = document.getElementById('btn-back-landing')!;
 const pauseMenu = document.getElementById('pause-menu')!;
+const deathScreen = document.getElementById('death-screen')!;
+const deathCause = document.getElementById('death-cause')!;
+const btnRespawn = document.getElementById('btn-respawn')!;
+const btnDeathQuit = document.getElementById('btn-death-quit')!;
 const pauseSeedEl = document.getElementById('pause-seed')!;
 const btnNew = document.getElementById('btn-new')!;
 const btnContinue = document.getElementById('btn-continue')!;
@@ -394,12 +412,21 @@ async function playServer(s: ServerInfo): Promise<void> {
     const save = normalizeSave(cloud.progress);
     if (save && cloud.world?.edits) save.edits = cloud.world.edits; // world blocks are shared
     startGame(!save, save, cloud.world?.edits ?? null);
-    presence.connect(auth.token!, s.id);
-    presence.onEvent = (msg) => hud.toast(msg);
+    connectPresence(s);
   } catch (e) {
     currentServer = null;
     serverErrorMsg(e instanceof ApiError ? e.message : 'Failed to load server');
   }
+}
+
+/** Hook the presence socket up to toasts + remote avatars. */
+function connectPresence(s: ServerInfo): void {
+  presence.connect(auth.token!, s.id);
+  presence.onEvent = (msg) => hud.toast(msg);
+  presence.onPos = (username, r, x, y, z, yaw) => {
+    if (username !== auth.user?.username) remotes.upsert(username, r, x, y, z, yaw);
+  };
+  presence.onPlayers = (list) => remotes.prune(list, auth.user?.username ?? '');
 }
 
 btnServerBack.addEventListener('click', showLanding);
@@ -463,8 +490,7 @@ async function handleCreateWorld(): Promise<void> {
       creatingServer = false;
       currentServer = s;
       startGame(true);
-      presence.connect(auth.token!, s.id);
-      presence.onEvent = (msg) => hud.toast(msg);
+      connectPresence(s);
       saveCloud(true);
       hud.toast(`Realm "${s.name}" created — invite code: ${s.inviteCode}`);
     } catch (e) {
@@ -513,6 +539,7 @@ btnQuit.addEventListener('click', () => {
   if (currentServer) {
     saveCloud(true);
     presence.disconnect();
+    remotes.clear();
   }
   const backToServers = currentServer !== null && auth.loggedIn;
   currentServer = null;
@@ -627,7 +654,10 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   hud.setMana(mana);
   hud.show();
   hud.select(inventory.selected);
-  viewModel.setVisible(true);
+  playerModel.setRole(role);
+  playerModel.setVisible(thirdPerson);
+  viewModel.setVisible(!thirdPerson);
+  remotes.clear();
   pauseSeedEl.textContent = `${GENERATORS[worldType].name} · ${ROLES[role].name} · seed ${seed}`;
   titleScreen.classList.add('hidden');
   landingPage.classList.add('hidden');
@@ -636,6 +666,8 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   running = true;
   paused = false;
   uiOpen = false;
+  dead = false;
+  deathScreen.classList.add('hidden');
   requestPointerLock();
 }
 
@@ -645,9 +677,38 @@ function respawn(): void {
   player.spawn(sp.x, sp.z);
   health = 1.0;
   mana = 1.0;
+  air = 1.0;
   hud.setHealth(health);
   hud.setMana(mana);
 }
+
+/** Classic death screen: pause the world, show cause, wait for Respawn. */
+function die(cause: string): void {
+  if (dead) return;
+  dead = true;
+  paused = true;
+  mouseButtons.clear();
+  player?.keys.clear();
+  breakProgress = 0;
+  hud.setBreakProgress(0);
+  deathCause.textContent = cause;
+  deathScreen.classList.remove('hidden');
+  document.exitPointerLock();
+}
+
+btnRespawn.addEventListener('click', () => {
+  deathScreen.classList.add('hidden');
+  dead = false;
+  paused = false;
+  respawn();
+  requestPointerLock();
+});
+btnDeathQuit.addEventListener('click', () => {
+  deathScreen.classList.add('hidden');
+  dead = false;
+  respawn(); // leave the corpse state behind before saving
+  btnQuit.dispatchEvent(new Event('click'));
+});
 
 // ---------- Touch device detection ----------
 const isTouch = (navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
@@ -664,6 +725,7 @@ document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (!running) return;
   if (uiOpen) return; // inventory overlay manages its own state
+  if (dead) return;   // death screen owns the pause until Respawn
   paused = !locked;
   pauseMenu.classList.toggle('hidden', locked);
   if (paused) {
@@ -712,6 +774,7 @@ document.addEventListener('keydown', (e) => {
     else if (player.flying) player.toggleFly(); // never stay airborne in survival
     else hud.toast('No flying in Survival');
   }
+  if (e.code === 'KeyV') toggleThirdPerson();
   if (e.code.startsWith('Digit')) {
     hud.selectDigit(parseInt(e.code.slice(5), 10));
   }
@@ -883,11 +946,12 @@ function heal(frac: number): void {
 }
 
 function applyDamage(dmg: number): void {
-  if (effects.invulnT > 0) return;
+  if (effects.invulnT > 0 || dead) return;
   let reduced = effects.shieldT > 0 ? dmg * 0.3 : dmg;
   reduced *= 1 - (inventory?.totalArmor() ?? 0);
-  health -= reduced / stats.maxHealth;
+  health = Math.max(0, health - reduced / stats.maxHealth);
   hud.setHealth(health);
+  if (mode === 'survival' && health <= 0) die('You were slain');
 }
 
 function castSkill(index: number): void {
@@ -1028,9 +1092,7 @@ function updateSurvival(dt: number): void {
   hud.setMana(mana);
 
   if (health <= 0) {
-    respawn();
-    air = 1;
-    hud.toast(inLava ? 'You burned in lava! Respawned.' : 'You died! Respawned.');
+    die(inLava ? 'You burned in lava' : air <= 0 ? 'You drowned' : 'You died');
   }
 }
 
@@ -1141,6 +1203,9 @@ function setupTouchControls(): void {
   document.getElementById('tbtn-pack')!.addEventListener('click', () => {
     if (running && !paused && !uiOpen) openUI('backpack');
   });
+  document.getElementById('tbtn-view')!.addEventListener('click', () => {
+    if (running && !paused && !uiOpen) toggleThirdPerson();
+  });
 }
 
 // ---------- Main loop ----------
@@ -1180,18 +1245,40 @@ function frame(now: number): void {
       autosaveT += dt;
       posSyncT += dt;
       if (autosaveT > 25) { autosaveT = 0; saveCloud(true); }
-      if (posSyncT > 3) { posSyncT = 0; presence.sendPos(player.position.x, player.position.y, player.position.z); }
+      if (posSyncT > 0.25) {
+        posSyncT = 0;
+        presence.sendPos(player.position.x, player.position.y, player.position.z, player.yaw, role);
+      }
+      remotes.update(dt);
     }
   }
 
   player.eyePosition(eyePos);
-  camera.position.copy(eyePos);
   camera.rotation.set(0, 0, 0, 'YXZ');
   camera.rotation.order = 'YXZ';
   camera.rotation.y = player.yaw;
   camera.rotation.x = player.pitch;
-
   player.lookDirection(lookDir);
+
+  if (thirdPerson) {
+    // pull the camera back along the view ray, stopping at solid blocks
+    let dist = 0.5;
+    for (; dist < THIRD_PERSON_DISTANCE; dist += 0.25) {
+      const cx = eyePos.x - lookDir.x * (dist + 0.3);
+      const cy = eyePos.y - lookDir.y * (dist + 0.3);
+      const cz = eyePos.z - lookDir.z * (dist + 0.3);
+      if (world.isSolidAt(cx, cy, cz)) break;
+    }
+    camera.position.set(
+      eyePos.x - lookDir.x * dist,
+      eyePos.y - lookDir.y * dist,
+      eyePos.z - lookDir.z * dist
+    );
+    const hSpeed2 = Math.hypot(player.velocity.x, player.velocity.z);
+    playerModel.update(dt, player.position, player.yaw, hSpeed2);
+  } else {
+    camera.position.copy(eyePos);
+  }
   currentHit = uiOpen ? null : raycastVoxel(world, eyePos, lookDir, REACH);
   if (currentHit) {
     highlight.visible = true;
@@ -1204,6 +1291,11 @@ function frame(now: number): void {
 
   if (!paused && !uiOpen) updateInteraction(dt);
 
+  clockT += dt;
+  if (clockT > 0.5) {
+    clockT = 0;
+    hud.setTimeOfDay(environment.getTime(), environment.isNight());
+  }
   if (isTouch) touchControls.classList.toggle('hidden', !running || paused || uiOpen);
   worldRenderer.update(player.position.x, player.position.z);
   renderer.render(scene, camera);
@@ -1226,6 +1318,9 @@ if (import.meta.env.DEV) {
     tryEat,
     applyDamage,
     get viewModel() { return viewModel; },
+    get remotes() { return remotes; },
+    toggleThirdPerson,
+    get presence() { return presence; },
     get state() { return { mode, role, health, mana, spawnPoint, uiOpen }; },
     setMode: (m: GameMode) => { mode = m; },
     setRole: (r: RoleId) => { role = r; },

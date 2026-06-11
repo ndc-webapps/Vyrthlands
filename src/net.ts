@@ -65,6 +65,7 @@ export class Presence {
   players: string[] = [];
   onEvent: ((msg: string) => void) | null = null;
   onPlayers: ((players: string[]) => void) | null = null;
+  onPos: ((username: string, role: string, x: number, y: number, z: number, yaw: number) => void) | null = null;
 
   connect(token: string, serverId: string): void {
     this.disconnect();
@@ -80,13 +81,15 @@ export class Presence {
           this.onPlayers?.(this.players);
           this.onEvent?.(msg.type === 'join' ? `${msg.username} joined` : `${msg.username} left`);
         }
-        // msg.type === 'pos': remote player positions (rendering = next phase)
+        if (msg.type === 'pos') {
+          this.onPos?.(msg.username, msg.role ?? 'swordsman', msg.x, msg.y, msg.z, msg.yaw ?? 0);
+        }
       } catch { /* ignore */ }
     };
   }
 
-  sendPos(x: number, y: number, z: number): void {
-    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'pos', x, y, z }));
+  sendPos(x: number, y: number, z: number, yaw: number, role: string): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'pos', x, y, z, yaw, role }));
   }
 
   disconnect(): void {

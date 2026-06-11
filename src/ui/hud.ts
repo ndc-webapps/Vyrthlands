@@ -4,6 +4,31 @@ import { Atlas } from '../textures';
 import { SkillDef } from '../skills';
 import { GameMode } from '../types';
 
+// 7x6 pixel heart, drawn once per state (original pixel art)
+const HEART_GRID = [
+  '.XX.XX.',
+  'XXXXXXX',
+  'XXXXXXX',
+  '.XXXXX.',
+  '..XXX..',
+  '...X...',
+];
+
+function heartDataUrl(state: 'full' | 'half' | 'empty'): string {
+  const s = 3;
+  const c = document.createElement('canvas');
+  c.width = 7 * s; c.height = 6 * s;
+  const ctx = c.getContext('2d')!;
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 7; x++) {
+    if (HEART_GRID[y][x] !== 'X') continue;
+    let color = '#3a1216'; // empty: dark socket
+    if (state === 'full' || (state === 'half' && x < 4)) color = y < 2 && x < 3 ? '#ff6a7a' : '#e0254a';
+    ctx.fillStyle = color;
+    ctx.fillRect(x * s, y * s, s, s);
+  }
+  return c.toDataURL();
+}
+
 export class HUD {
   private hudEl = document.getElementById('hud')!;
   private hotbarEl = document.getElementById('hotbar')!;
@@ -11,11 +36,15 @@ export class HUD {
   private modeEl = document.getElementById('mode-badge')!;
   private healthBarEl = document.getElementById('health-bar')!;
   private healthFillEl = document.getElementById('health-fill')!;
+  private heartsEl = document.getElementById('hearts-row')!;
+  private dayEl = document.getElementById('day-indicator')!;
   private manaBarEl = document.getElementById('mana-bar')!;
   private manaFillEl = document.getElementById('mana-fill')!;
   private toastEl = document.getElementById('toast')!;
   private slots: HTMLElement[] = [];
   private toastTimer = 0;
+  private heartImgs: HTMLImageElement[] = [];
+  private heartUrls = { full: heartDataUrl('full'), half: heartDataUrl('half'), empty: heartDataUrl('empty') };
 
   private inv: Inventory | null = null;
   onSelect: ((itemId: number | null) => void) | null = null;
@@ -141,12 +170,38 @@ export class HUD {
   setMode(mode: GameMode, roleName?: string): void {
     this.modeEl.textContent = (mode === 'creative' ? 'Creative' : 'Survival') + (roleName ? ` · ${roleName}` : '');
     this.modeEl.dataset.mode = mode;
-    this.healthBarEl.classList.toggle('hidden', mode !== 'survival');
+    this.healthBarEl.classList.add('hidden'); // legacy bar replaced by hearts
+    this.heartsEl.classList.toggle('hidden', mode !== 'survival');
     this.manaBarEl.classList.toggle('hidden', mode !== 'survival');
+    this.dayEl.classList.remove('hidden');
+    if (this.heartImgs.length === 0) {
+      for (let i = 0; i < 10; i++) {
+        const img = document.createElement('img');
+        img.className = 'heart';
+        this.heartsEl.appendChild(img);
+        this.heartImgs.push(img);
+      }
+    }
   }
 
+  /** Classic hearts: 10 hearts = full health, half-heart granularity. */
   setHealth(fraction: number): void {
     this.healthFillEl.style.width = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
+    const halves = Math.round(Math.max(0, Math.min(1, fraction)) * 20);
+    for (let i = 0; i < 10; i++) {
+      const img = this.heartImgs[i];
+      if (!img) continue;
+      img.src = halves >= i * 2 + 2 ? this.heartUrls.full : halves === i * 2 + 1 ? this.heartUrls.half : this.heartUrls.empty;
+    }
+  }
+
+  /** Sun/moon clock in the corner. t in [0,1), one full day. */
+  setTimeOfDay(t: number, night: boolean): void {
+    const mins = Math.floor(t * 24 * 60);
+    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+    const mm = String(mins % 60).padStart(2, '0');
+    this.dayEl.textContent = `${night ? '☾' : '☀'} ${hh}:${mm}`;
+    this.dayEl.dataset.night = night ? '1' : '0';
   }
 
   setMana(fraction: number): void {

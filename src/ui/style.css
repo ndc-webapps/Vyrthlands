@@ -1413,3 +1413,139 @@ button.loading { opacity: 0.6; pointer-events: none; }
 }
 .touch-btns-top .tbtn { pointer-events: auto; }
 body.touch-mode #controls-help { display: none; }
+
+/* ============================================================
+   CLASSIC BLOCKY RESKIN — in-game UI only (original pixel art,
+   no third-party game assets). Landing page keeps its own look.
+   ============================================================ */
+
+/* hearts + clock */
+#hearts-row {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 96px; display: flex; gap: 2px; z-index: 3;
+}
+#hearts-row .heart { width: 21px; height: 18px; image-rendering: pixelated; }
+#day-indicator {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  font-family: 'Silkscreen', monospace; font-size: 14px; color: #ffe080;
+  background: rgba(12, 12, 16, 0.6); border: 2px solid #3a3a44;
+  padding: 4px 12px; z-index: 3;
+}
+#day-indicator[data-night="1"] { color: #9ab8ff; }
+
+/* hotbar: chunky inset slots, bold selected outline */
+#hotbar {
+  background: rgba(12, 12, 16, 0.72);
+  border: 3px solid #2a2a32;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 2px #55555f, 0 4px 0 rgba(0,0,0,0.4);
+  gap: 0;
+  padding: 3px;
+}
+.hotbar-slot {
+  border-radius: 0;
+  border: 2px solid #2a2a32;
+  background: linear-gradient(180deg, #3a3a42 0%, #2e2e36 100%);
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.45), inset -2px -2px 0 rgba(255,255,255,0.07);
+}
+.hotbar-slot.active {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 2px #1a1a20, inset 0 0 0 1px rgba(255,255,255,0.35);
+  transform: none;
+}
+.hotbar-slot .key { font-family: 'Silkscreen', monospace; font-size: 9px; }
+.hotbar-slot .count { font-family: 'Silkscreen', monospace; }
+.hotbar-slot canvas { image-rendering: pixelated; }
+
+/* mana bar matches the blocky frame */
+#mana-bar {
+  border-radius: 0; border: 2px solid #2a2a32;
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.45);
+}
+#mana-fill { border-radius: 0; }
+
+/* badges, name, toast in pixel font */
+#mode-badge, #selected-block-name, #toast {
+  font-family: 'Silkscreen', monospace;
+  border-radius: 0;
+  border: 2px solid #2a2a32;
+}
+#toast { box-shadow: 0 3px 0 rgba(0,0,0,0.4); }
+
+/* skill slots */
+.skill-slot {
+  border-radius: 0; border: 2px solid #2a2a32;
+  background: linear-gradient(180deg, #3a3a42 0%, #2e2e36 100%);
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.45), inset -2px -2px 0 rgba(255,255,255,0.07);
+}
+.skill-slot .key, .skill-slot .cost { font-family: 'Silkscreen', monospace; }
+
+/* panels: stone-dark, square corners, thick bevel */
+#title-screen .panel, #pause-menu .panel, .inv-panel, #server-screen .panel {
+  border-radius: 4px;
+  background: rgba(22, 22, 28, 0.96);
+  border: 3px solid #0c0c10;
+  box-shadow: inset 0 0 0 2px #4a4a55, 0 10px 0 rgba(0,0,0,0.35);
+  backdrop-filter: none;
+}
+#title-screen h1, #pause-menu h2, #server-screen h1 {
+  font-family: 'Silkscreen', monospace;
+  letter-spacing: 1px;
+}
+
+/* classic chunky buttons (in-game screens only) */
+#title-screen button, #pause-menu button, .inv-panel button,
+#server-screen button, #death-screen button {
+  font-family: 'Silkscreen', monospace;
+  border-radius: 0;
+  border: 2px solid #0c0c10;
+  background: linear-gradient(180deg, #8a8f98 0%, #6a6f78 50%, #5a5f68 100%);
+  color: #ffffff;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.3), inset 0 -3px 0 rgba(0,0,0,0.35);
+}
+#title-screen button:hover, #pause-menu button:hover, .inv-panel button:hover,
+#server-screen button:hover, #death-screen button:hover {
+  background: linear-gradient(180deg, #9aa8c8 0%, #7a88a8 50%, #6a7898 100%);
+  border-color: #ffffff;
+}
+#title-screen button.primary, #pause-menu button.primary,
+#server-screen button.primary, #death-screen button.primary {
+  background: linear-gradient(180deg, #6abf4b 0%, #4e9a35 50%, #3f8029 100%);
+}
+#title-screen .opt.active, #title-screen .mode.active {
+  background: linear-gradient(180deg, #6abf4b 0%, #4e9a35 100%);
+  border-color: #ffffff; color: #fff;
+}
+#title-screen input, #server-screen input {
+  border-radius: 0; border: 2px solid #0c0c10;
+  background: #1a1a20; color: #fff;
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.5);
+  font-family: 'Silkscreen', monospace;
+}
+
+/* inventory slots get the same inset treatment */
+.inv-slot {
+  border-radius: 0; border: 2px solid #2a2a32;
+  background: linear-gradient(180deg, #3a3a42 0%, #2e2e36 100%);
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.45), inset -2px -2px 0 rgba(255,255,255,0.07);
+}
+.inv-slot.picked { border-color: #ffe080; }
+.inv-slot canvas { image-rendering: pixelated; }
+.recipe { border-radius: 0; border: 2px solid #2a2a32; }
+.inv-tabs button { font-family: 'Silkscreen', monospace; border-radius: 0; }
+
+/* death screen: classic red haze */
+#death-screen {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(120, 12, 12, 0.55);
+}
+#death-screen.hidden { display: none; }
+.death-inner { text-align: center; display: flex; flex-direction: column; gap: 14px; min-width: 280px; }
+.death-inner h2 {
+  font-family: 'Silkscreen', monospace; font-size: 42px; color: #ffffff;
+  text-shadow: 3px 3px 0 rgba(0,0,0,0.6); margin: 0;
+}
+.death-inner p { color: #ffd8d8; font-family: 'Silkscreen', monospace; margin: 0 0 8px; }
+.death-inner button { min-height: 48px; font-size: 15px; }
