@@ -27,6 +27,10 @@
       <div class="nav-actions">
         <button id="landing-login" class="ghost-btn">Login</button>
         <button id="landing-create" class="ghost-btn">Create Account</button>
+        <div id="account-chip" class="account-chip hidden">
+          <span id="account-name"></span>
+          <button id="account-logout" class="ghost-btn">Logout</button>
+        </div>
       </div>
     </header>
 
@@ -252,14 +256,35 @@
     <div class="modal-panel">
       <button id="login-close" class="modal-close">x</button>
       <span class="modal-eyebrow">Vyrthlands Account</span>
-      <h2>Login</h2>
-      <p>Account sync is coming soon. The guest path is ready for local worlds.</p>
-      <input id="login-email" type="email" placeholder="Email" autocomplete="email" />
+      <div class="auth-tabs">
+        <button id="tab-login" class="auth-tab active">Login</button>
+        <button id="tab-register" class="auth-tab">Create Account</button>
+      </div>
+      <input id="login-username" type="text" placeholder="Username" autocomplete="username" maxlength="16" />
+      <input id="login-email" type="email" placeholder="Email (optional)" autocomplete="email" class="hidden" />
       <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
+      <p id="login-error" class="auth-error hidden"></p>
       <button id="login-submit" class="primary">Login</button>
-      <button id="login-create" class="link-btn">Create Account</button>
       <button id="login-forgot" class="link-btn">Forgot Password</button>
-      <button id="login-guest" class="secondary">Continue as Guest</button>
+      <button id="login-guest" class="secondary">Continue as Guest (local worlds only)</button>
+    </div>
+  </div>
+
+  <!-- Server selection (logged-in flow) -->
+  <div id="server-screen" class="hidden">
+    <div class="panel panel-wide">
+      <button id="btn-server-back" class="back-btn">Back</button>
+      <h1>Your <span>Realms</span></h1>
+      <p class="tagline">Continue an adventure, host a new realm, or join a friend.</p>
+      <div class="server-toolbar">
+        <button id="btn-server-create" class="primary">Create Server</button>
+        <div class="seed-row join-row">
+          <input id="join-code-input" type="text" placeholder="Invite code" maxlength="6" autocomplete="off" spellcheck="false" />
+          <button id="btn-join-code">Join</button>
+        </div>
+      </div>
+      <p id="server-error" class="auth-error hidden"></p>
+      <div id="server-list" class="server-list"></div>
     </div>
   </div>
 
@@ -288,6 +313,13 @@
       <button id="btn-back-landing" class="back-btn">Back</button>
       <h1>Vyrth<span>lands</span></h1>
       <p class="tagline">Choose a realm. Survive the story.</p>
+
+      <div class="opt-group" id="server-name-group" style="display:none">
+        <label>Server Name</label>
+        <div class="seed-row">
+          <input id="server-name-input" type="text" placeholder="My Realm" maxlength="32" autocomplete="off" />
+        </div>
+      </div>
 
       <div class="opt-group">
         <label>World Type</label>

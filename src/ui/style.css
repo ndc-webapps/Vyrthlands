@@ -1303,3 +1303,59 @@ html, body {
   .hotbar-slot .swatch { width: 26px; height: 26px; }
   #controls-help { display: none; }
 }
+
+/* ---------- Account / auth ---------- */
+.account-chip { display: flex; align-items: center; gap: 10px; }
+.account-chip span {
+  font-weight: 700; color: #7df0ff; font-size: 14px;
+  padding: 6px 12px; border: 1px solid rgba(125,240,255,0.3);
+  border-radius: 999px; background: rgba(125,240,255,0.08);
+}
+.auth-tabs { display: flex; gap: 8px; margin: 6px 0 14px; }
+.auth-tab {
+  flex: 1; min-height: 40px; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text, #e8ecf4); font-weight: 700;
+}
+.auth-tab.active { background: rgba(94,234,212,0.16); border-color: rgba(94,234,212,0.5); color: #5eead4; }
+.auth-error {
+  color: #ff7a7a; font-size: 13px; margin: 4px 0 8px;
+  background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.25);
+  border-radius: 8px; padding: 8px 12px;
+}
+button.loading { opacity: 0.6; pointer-events: none; }
+
+/* ---------- Server selection ---------- */
+#server-screen {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(92,214,240,0.18), transparent),
+    linear-gradient(180deg, #0b0e16 0%, #121a2e 60%, #1a2742 100%);
+}
+.server-toolbar { display: flex; gap: 10px; align-items: stretch; margin-bottom: 14px; }
+.server-toolbar .primary { flex: 0 0 auto; }
+.join-row { flex: 1; }
+.join-row input { text-transform: uppercase; letter-spacing: 2px; }
+.server-list { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow-y: auto; }
+.server-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 14px 16px; text-align: left;
+}
+.server-card:hover { border-color: rgba(94,234,212,0.4); }
+.server-card .sc-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.server-card .sc-name { font-weight: 800; font-size: 16px; color: #fff; }
+.server-card .sc-meta { font-size: 12px; color: rgba(232,236,244,0.6); }
+.server-card .sc-code {
+  font-size: 12px; color: #ffd070; letter-spacing: 2px; font-weight: 700;
+}
+.server-card .sc-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+.server-card .sc-online {
+  font-size: 12px; color: #5eead4; font-weight: 700; white-space: nowrap;
+}
+.server-empty { color: rgba(232,236,244,0.55); text-align: center; padding: 30px 0; }
+@media (max-width: 560px) {
+  .server-toolbar { flex-direction: column; }
+  .server-card { flex-direction: column; align-items: flex-start; }
+}

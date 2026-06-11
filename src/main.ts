@@ -21,9 +21,10 @@ import { ROLES, RoleId, computeStats, PlayerStats } from './roles';
 import { MobManager } from './mobs';
 import { ProjectileManager } from './projectiles';
 import { ActiveEffects, ROLE_SKILLS, SKILLS, SkillContext } from './skills';
-import { saveWorld, loadSave, hasSave, clearSave } from './save';
+import { saveWorld, loadSave, hasSave, clearSave, buildSaveData, normalizeSave, SaveData } from './save';
 import { GameMode } from './types';
-import { AuthStore } from './auth';
+import { AuthStore, ApiError } from './auth';
+import { ServerApi, Presence, ServerInfo } from './net';
 
 // ---------- Renderer / scene ----------
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -79,6 +80,12 @@ let meleeCooldown = 0;
 const hud = new HUD(atlas);
 const invUI = new InventoryUI(atlas);
 const auth = new AuthStore();
+const serverApi = new ServerApi(auth);
+const presence = new Presence();
+let currentServer: ServerInfo | null = null;  // cloud session (null = local/guest)
+let creatingServer = false;                   // title screen is configuring a new cloud server
+let autosaveT = 0;
+let posSyncT = 0;
 hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
 invUI.onClose = () => {
@@ -107,10 +114,27 @@ const btnNavLogin = document.getElementById('landing-login')!;
 const btnNavCreate = document.getElementById('landing-create')!;
 const loginModal = document.getElementById('login-modal')!;
 const loginClose = document.getElementById('login-close')!;
-const loginSubmit = document.getElementById('login-submit')!;
-const loginCreate = document.getElementById('login-create')!;
+const loginSubmit = document.getElementById('login-submit') as HTMLButtonElement;
 const loginForgot = document.getElementById('login-forgot')!;
 const loginGuest = document.getElementById('login-guest')!;
+const tabLogin = document.getElementById('tab-login')!;
+const tabRegister = document.getElementById('tab-register')!;
+const loginUsername = document.getElementById('login-username') as HTMLInputElement;
+const loginEmail = document.getElementById('login-email') as HTMLInputElement;
+const loginPassword = document.getElementById('login-password') as HTMLInputElement;
+const loginError = document.getElementById('login-error')!;
+const accountChip = document.getElementById('account-chip')!;
+const accountName = document.getElementById('account-name')!;
+const accountLogout = document.getElementById('account-logout')!;
+const serverScreen = document.getElementById('server-screen')!;
+const serverList = document.getElementById('server-list')!;
+const serverError = document.getElementById('server-error')!;
+const btnServerBack = document.getElementById('btn-server-back')!;
+const btnServerCreate = document.getElementById('btn-server-create')!;
+const joinCodeInput = document.getElementById('join-code-input') as HTMLInputElement;
+const btnJoinCode = document.getElementById('btn-join-code')!;
+const serverNameGroup = document.getElementById('server-name-group')!;
+const serverNameInput = document.getElementById('server-name-input') as HTMLInputElement;
 const titleScreen = document.getElementById('title-screen')!;
 const btnBackLanding = document.getElementById('btn-back-landing')!;
 const pauseMenu = document.getElementById('pause-menu')!;
@@ -185,40 +209,194 @@ function showLanding(): void {
   landingPage.classList.remove('hidden');
   titleScreen.classList.add('hidden');
   pauseMenu.classList.add('hidden');
+  serverScreen.classList.add('hidden');
 }
 
 function showWorldSelect(): void {
   landingPage.classList.add('hidden');
   titleScreen.classList.remove('hidden');
   pauseMenu.classList.add('hidden');
+  serverScreen.classList.add('hidden');
+  serverNameGroup.style.display = creatingServer ? '' : 'none';
+  (document.getElementById('btn-new')!).textContent = creatingServer ? 'Create Server' : 'Create World';
 }
 
-function openLogin(): void { loginModal.classList.remove('hidden'); }
+function showServerScreen(): void {
+  landingPage.classList.add('hidden');
+  titleScreen.classList.add('hidden');
+  serverScreen.classList.remove('hidden');
+  void renderServers();
+}
+
+// ---------- auth modal ----------
+let authTab: 'login' | 'register' = 'login';
+function setAuthTab(t: 'login' | 'register'): void {
+  authTab = t;
+  tabLogin.classList.toggle('active', t === 'login');
+  tabRegister.classList.toggle('active', t === 'register');
+  loginEmail.classList.toggle('hidden', t === 'login');
+  loginSubmit.textContent = t === 'login' ? 'Login' : 'Create Account';
+  loginPassword.autocomplete = t === 'login' ? 'current-password' : 'new-password';
+  authError('');
+}
+function authError(msg: string): void {
+  loginError.textContent = msg;
+  loginError.classList.toggle('hidden', !msg);
+}
+function openLogin(): void { loginModal.classList.remove('hidden'); authError(''); }
 function closeLogin(): void { loginModal.classList.add('hidden'); }
 
-btnStartAdventure.addEventListener('click', showWorldSelect);
-btnStartAdventureCTA.addEventListener('click', showWorldSelect);
-btnExploreRealms.addEventListener('click', () => {
-  document.getElementById('worlds')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-btnBackLanding.addEventListener('click', showLanding);
-btnLandingContinue.addEventListener('click', () => {
-  if (hasSave()) startGame(false);
-  else hud.toast('No saved world found');
-});
-btnNavLogin.addEventListener('click', openLogin);
-btnNavCreate.addEventListener('click', openLogin);
-loginClose.addEventListener('click', closeLogin);
-loginSubmit.addEventListener('click', () => {
-  auth.loginPlaceholder();
-  hud.toast('Account system coming soon');
-});
-loginCreate.addEventListener('click', () => hud.toast('Account creation coming soon'));
+function updateAccountUI(): void {
+  const u = auth.user;
+  accountChip.classList.toggle('hidden', !u);
+  btnNavLogin.classList.toggle('hidden', !!u);
+  btnNavCreate.classList.toggle('hidden', !!u);
+  accountName.textContent = u ? u.username : '';
+}
+
+async function submitAuth(): Promise<void> {
+  authError('');
+  loginSubmit.classList.add('loading');
+  loginSubmit.textContent = authTab === 'login' ? 'Logging in…' : 'Creating…';
+  try {
+    if (authTab === 'login') await auth.login(loginUsername.value.trim(), loginPassword.value);
+    else await auth.register(loginUsername.value.trim(), loginPassword.value, loginEmail.value.trim());
+    closeLogin();
+    updateAccountUI();
+    hud.toast(`Welcome, ${auth.user!.username}!`);
+    showServerScreen();
+  } catch (e) {
+    authError(e instanceof ApiError ? e.message : 'Something went wrong');
+  } finally {
+    loginSubmit.classList.remove('loading');
+    loginSubmit.textContent = authTab === 'login' ? 'Login' : 'Create Account';
+  }
+}
+
+tabLogin.addEventListener('click', () => setAuthTab('login'));
+tabRegister.addEventListener('click', () => setAuthTab('register'));
+loginSubmit.addEventListener('click', () => void submitAuth());
+loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') void submitAuth(); });
 loginForgot.addEventListener('click', () => hud.toast('Password recovery coming soon'));
 loginGuest.addEventListener('click', () => {
   auth.continueAsGuest();
   closeLogin();
+  creatingServer = false;
+  showWorldSelect();
 });
+accountLogout.addEventListener('click', () => {
+  void auth.logout().then(() => {
+    currentServer = null;
+    presence.disconnect();
+    updateAccountUI();
+    showLanding();
+    hud.toast('Logged out');
+  });
+});
+
+function enterFlow(): void {
+  if (auth.loggedIn) showServerScreen();
+  else openLogin();
+}
+btnStartAdventure.addEventListener('click', enterFlow);
+btnStartAdventureCTA.addEventListener('click', enterFlow);
+btnExploreRealms.addEventListener('click', () => {
+  document.getElementById('worlds')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+btnBackLanding.addEventListener('click', () => {
+  if (creatingServer) { creatingServer = false; showServerScreen(); }
+  else showLanding();
+});
+btnLandingContinue.addEventListener('click', () => {
+  if (hasSave()) startGame(false);
+  else hud.toast('No saved world found');
+});
+btnNavLogin.addEventListener('click', () => { setAuthTab('login'); openLogin(); });
+btnNavCreate.addEventListener('click', () => { setAuthTab('register'); openLogin(); });
+loginClose.addEventListener('click', closeLogin);
+
+// ---------- server selection ----------
+function serverErrorMsg(msg: string): void {
+  serverError.textContent = msg;
+  serverError.classList.toggle('hidden', !msg);
+}
+
+async function renderServers(): Promise<void> {
+  serverErrorMsg('');
+  serverList.innerHTML = '<p class="server-empty">Loading realms…</p>';
+  try {
+    const servers = await serverApi.list();
+    serverList.innerHTML = '';
+    if (servers.length === 0) {
+      serverList.innerHTML = '<p class="server-empty">No realms yet. Create one or join a friend with an invite code.</p>';
+      return;
+    }
+    for (const s of servers) {
+      const card = document.createElement('div');
+      card.className = 'server-card';
+      const when = new Date(s.lastPlayed).toLocaleDateString();
+      card.innerHTML = `
+        <div class="sc-info">
+          <span class="sc-name"></span>
+          <span class="sc-meta">${s.worldType} · ${s.mode} · ${s.members.length}/${s.maxPlayers} players · last played ${when}</span>
+          ${s.inviteCode ? `<span class="sc-code">Invite: ${s.inviteCode}</span>` : ''}
+        </div>
+        <div class="sc-actions">
+          <span class="sc-online">${s.online} online</span>
+          <button class="primary sc-play">Play</button>
+        </div>`;
+      (card.querySelector('.sc-name') as HTMLElement).textContent = s.name + (s.isOwner ? ' (yours)' : '');
+      (card.querySelector('.sc-play') as HTMLElement).addEventListener('click', () => void playServer(s));
+      serverList.appendChild(card);
+    }
+  } catch (e) {
+    serverList.innerHTML = '';
+    serverErrorMsg(e instanceof ApiError ? e.message : 'Failed to load servers');
+  }
+}
+
+async function playServer(s: ServerInfo): Promise<void> {
+  serverErrorMsg('');
+  try {
+    const cloud = await serverApi.load(s.id);
+    currentServer = s;
+    worldType = (GENERATORS[s.worldType as WorldType] ? s.worldType : 'natural') as WorldType;
+    worldSize = (WORLD_SIZES[s.worldSize as WorldSizeKey] ? s.worldSize : 'medium') as WorldSizeKey;
+    mode = s.mode === 'creative' ? 'creative' : 'survival';
+    seedInput.value = String(s.seed);
+    const save = normalizeSave(cloud.progress);
+    if (save && cloud.world?.edits) save.edits = cloud.world.edits; // world blocks are shared
+    startGame(!save, save, cloud.world?.edits ?? null);
+    presence.connect(auth.token!, s.id);
+    presence.onEvent = (msg) => hud.toast(msg);
+  } catch (e) {
+    currentServer = null;
+    serverErrorMsg(e instanceof ApiError ? e.message : 'Failed to load server');
+  }
+}
+
+btnServerBack.addEventListener('click', showLanding);
+btnServerCreate.addEventListener('click', () => {
+  creatingServer = true;
+  serverNameInput.value = '';
+  showWorldSelect();
+});
+btnJoinCode.addEventListener('click', () => {
+  void (async () => {
+    serverErrorMsg('');
+    try {
+      const s = await serverApi.join(joinCodeInput.value.trim());
+      hud.toast(`Joined ${s.name}!`);
+      joinCodeInput.value = '';
+      await renderServers();
+    } catch (e) {
+      serverErrorMsg(e instanceof ApiError ? e.message : 'Failed to join');
+    }
+  })();
+});
+
+// restore session on page load
+void auth.restore().then(() => updateAccountUI());
 
 btnModeCreative.addEventListener('click', () => setTitleMode('creative'));
 btnModeSurvival.addEventListener('click', () => setTitleMode('survival'));
@@ -245,7 +423,49 @@ function parseSeed(text: string): number {
   return h | 0;
 }
 
-btnNew.addEventListener('click', () => startGame(true));
+btnNew.addEventListener('click', () => void handleCreateWorld());
+
+/** "Create World" button: local world, or a new cloud server when in server-create flow. */
+async function handleCreateWorld(): Promise<void> {
+  if (creatingServer && auth.loggedIn) {
+    const name = serverNameInput.value.trim() || 'My Realm';
+    const seed = parseSeed(seedInput.value);
+    seedInput.value = String(seed);
+    try {
+      const s = await serverApi.create({ name, worldType, mode, worldSize, seed });
+      creatingServer = false;
+      currentServer = s;
+      startGame(true);
+      presence.connect(auth.token!, s.id);
+      presence.onEvent = (msg) => hud.toast(msg);
+      saveCloud(true);
+      hud.toast(`Realm "${s.name}" created — invite code: ${s.inviteCode}`);
+    } catch (e) {
+      hud.toast(e instanceof ApiError ? e.message : 'Failed to create server');
+    }
+  } else {
+    startGame(true);
+  }
+}
+
+/** Push progress + shared world edits to the backend. */
+function saveCloud(silent = false): void {
+  if (!currentServer || !world || !player || !inventory) return;
+  const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
+    role, health, mana, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
+  });
+  serverApi.save(currentServer.id, data, { edits: data.edits })
+    .then(() => { if (!silent) hud.toast('Progress saved to server'); })
+    .catch(() => { if (!silent) hud.toast('Cloud save failed'); });
+}
+
+window.addEventListener('beforeunload', () => {
+  if (!currentServer || !world || !player || !inventory) return;
+  const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
+    role, health, mana, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
+  });
+  serverApi.saveBeacon(currentServer.id, data, { edits: data.edits });
+});
 btnContinue.addEventListener('click', () => startGame(false));
 btnResume.addEventListener('click', () => requestPointerLock());
 btnSave.addEventListener('click', doSave);
@@ -258,9 +478,23 @@ btnLoad.addEventListener('click', () => {
   }
 });
 btnQuit.addEventListener('click', () => {
+  if (currentServer) {
+    saveCloud(true);
+    presence.disconnect();
+  }
+  const backToServers = currentServer !== null && auth.loggedIn;
+  currentServer = null;
+  creatingServer = false;
   running = false;
   paused = false;
   uiOpen = false;
+  if (backToServers) {
+    pauseMenu.classList.add('hidden');
+    hud.hide();
+    viewModel.setVisible(false);
+    showServerScreen();
+    return;
+  }
   pauseMenu.classList.add('hidden');
   hud.hide();
   viewModel.setVisible(false);
@@ -274,6 +508,10 @@ btnQuit.addEventListener('click', () => {
 
 function doSave(): void {
   if (!world || !player || !inventory) return;
+  if (currentServer) {
+    saveCloud();
+    return;
+  }
   const ok = saveWorld(world, player, mode, worldType, worldSize, renderDistance, {
     role,
     health,
@@ -288,10 +526,10 @@ function doSave(): void {
 }
 
 // ---------- Game lifecycle ----------
-function startGame(fresh: boolean): void {
-  const save = fresh ? null : loadSave();
+function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits: Record<string, number> | null = null): void {
+  const save = cloudSave ?? (fresh ? null : loadSave());
   const seed = save ? save.seed : parseSeed(seedInput.value);
-  if (fresh) clearSave();
+  if (fresh && !currentServer) clearSave();
   if (save) {
     worldType = (save.worldType as string) === 'war' ? 'battlefront' : GENERATORS[save.worldType] ? save.worldType : 'natural';
     worldSize = save.worldSize;
@@ -314,6 +552,7 @@ function startGame(fresh: boolean): void {
   world = new World(seed, GENERATORS[worldType], WORLD_SIZES[worldSize]);
   mobs.setWorld(worldType);
   if (save) world.applyEdits(save.edits);
+  else if (cloudEdits) world.applyEdits(cloudEdits); // joining a friend's already-built world
 
   const rd = RENDER_DISTANCES[renderDistance];
   worldRenderer = new WorldRenderer(world, scene, atlas, rd);
@@ -788,6 +1027,14 @@ function frame(now: number): void {
     if (mode === 'survival') updateSurvival(dt);
     mobs.lastPlayerPos = player.position;
     mobs.update(dt, world, player.position, environment.isNight(), projectiles);
+
+    // cloud autosave + presence position sync
+    if (currentServer) {
+      autosaveT += dt;
+      posSyncT += dt;
+      if (autosaveT > 25) { autosaveT = 0; saveCloud(true); }
+      if (posSyncT > 3) { posSyncT = 0; presence.sendPos(player.position.x, player.position.y, player.position.z); }
+    }
   }
 
   player.eyePosition(eyePos);

@@ -30,38 +30,59 @@ export interface SaveExtras {
   inventory: unknown;
 }
 
+/** Build the full save payload (used for both localStorage and cloud saves). */
+export function buildSaveData(
+  world: World, player: Player, mode: GameMode,
+  worldType: WorldType, worldSize: WorldSizeKey, renderDistance: RenderDistanceKey,
+  extras: SaveExtras
+): SaveData {
+  return {
+    seed: world.seed,
+    worldType,
+    worldSize,
+    renderDistance,
+    mode,
+    role: extras.role,
+    edits: Object.fromEntries(world.edits),
+    player: {
+      x: player.position.x,
+      y: player.position.y,
+      z: player.position.z,
+      yaw: player.yaw,
+      pitch: player.pitch,
+    },
+    health: extras.health,
+    mana: extras.mana,
+    spawn: extras.spawn,
+    timeOfDay: extras.timeOfDay,
+    inventory: extras.inventory,
+  };
+}
+
 export function saveWorld(
   world: World, player: Player, mode: GameMode,
   worldType: WorldType, worldSize: WorldSizeKey, renderDistance: RenderDistanceKey,
   extras: SaveExtras
 ): boolean {
   try {
-    const data: SaveData = {
-      seed: world.seed,
-      worldType,
-      worldSize,
-      renderDistance,
-      mode,
-      role: extras.role,
-      edits: Object.fromEntries(world.edits),
-      player: {
-        x: player.position.x,
-        y: player.position.y,
-        z: player.position.z,
-        yaw: player.yaw,
-        pitch: player.pitch,
-      },
-      health: extras.health,
-      mana: extras.mana,
-      spawn: extras.spawn,
-      timeOfDay: extras.timeOfDay,
-      inventory: extras.inventory,
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveData(world, player, mode, worldType, worldSize, renderDistance, extras)));
     return true;
   } catch {
     return false;
   }
+}
+
+/** Validate/normalize a cloud-loaded save (same defaults as local). */
+export function normalizeSave(data: SaveData | null): SaveData | null {
+  if (!data || typeof data.seed !== 'number' || typeof data.edits !== 'object') return null;
+  if (!data.worldType) data.worldType = 'natural';
+  if (!data.worldSize) data.worldSize = 'medium';
+  if (!data.renderDistance) data.renderDistance = 'normal';
+  if (!data.role) data.role = 'swordsman';
+  if (typeof data.health !== 'number') data.health = 1;
+  if (typeof data.mana !== 'number') data.mana = 1;
+  if (typeof data.timeOfDay !== 'number') data.timeOfDay = 0.3;
+  return data;
 }
 
 export function loadSave(): SaveData | null {

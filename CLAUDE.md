@@ -4,12 +4,13 @@ Browser voxel survival RPG. Floating-islands theme with glowing Sky Crystal bloc
 
 ## Stack
 - Vite + TypeScript + Three.js (no framework)
-- LocalStorage saves
-- No backend
+- Backend: Express + node:sqlite + ws ([server/index.js](server/index.js)) — accounts, friend servers (invite codes), per-player cloud progress, shared world edits, WS presence
+- Guest mode: localStorage saves, works without backend
 
 ## Run
 - `npm install`
-- `npm run dev` — dev server
+- `npm run server` — backend on :8081 (db: server/vyrthlands.db)
+- `npm run dev` — dev server (vite proxies /api and /ws to :8081)
 - `npm run build` — typecheck (tsc) + production build
 
 ## Architecture
