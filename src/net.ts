@@ -66,6 +66,8 @@ export class Presence {
   onEvent: ((msg: string) => void) | null = null;
   onPlayers: ((players: string[]) => void) | null = null;
   onPos: ((username: string, role: string, x: number, y: number, z: number, yaw: number) => void) | null = null;
+  onChat: ((username: string, text: string) => void) | null = null;
+  onBlock: ((username: string, x: number, y: number, z: number, id: number) => void) | null = null;
 
   connect(token: string, serverId: string): void {
     this.disconnect();
@@ -84,12 +86,23 @@ export class Presence {
         if (msg.type === 'pos') {
           this.onPos?.(msg.username, msg.role ?? 'swordsman', msg.x, msg.y, msg.z, msg.yaw ?? 0);
         }
+        if (msg.type === 'chat') this.onChat?.(msg.username, msg.text);
+        if (msg.type === 'block') this.onBlock?.(msg.username, msg.x, msg.y, msg.z, msg.id);
       } catch { /* ignore */ }
     };
   }
 
   sendPos(x: number, y: number, z: number, yaw: number, role: string): void {
     if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'pos', x, y, z, yaw, role }));
+  }
+
+  sendChat(text: string): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'chat', text }));
+  }
+
+  /** Live block edit so friends see you build/mine instantly. */
+  sendBlock(x: number, y: number, z: number, id: number): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'block', x, y, z, id }));
   }
 
   disconnect(): void {

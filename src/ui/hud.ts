@@ -29,6 +29,34 @@ function heartDataUrl(state: 'full' | 'half' | 'empty'): string {
   return c.toDataURL();
 }
 
+// 7x6 pixel meat shank for the vitality (hunger) row
+const SHANK_GRID = [
+  '..XXXX.',
+  '.XXXXXX',
+  '.XXXXX.',
+  'BXXXX..',
+  'BB.....',
+  'B......',
+];
+
+function shankDataUrl(state: 'full' | 'half' | 'empty'): string {
+  const s = 3;
+  const c = document.createElement('canvas');
+  c.width = 7 * s; c.height = 6 * s;
+  const ctx = c.getContext('2d')!;
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 7; x++) {
+    const cell = SHANK_GRID[y][x];
+    if (cell === '.') continue;
+    let color = '#2c2018'; // empty socket
+    if (state === 'full' || (state === 'half' && x < 4)) {
+      color = cell === 'B' ? '#d8d0c0' : y < 2 ? '#c87840' : '#a85a28'; // bone + roast
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(x * s, y * s, s, s);
+  }
+  return c.toDataURL();
+}
+
 export class HUD {
   private hudEl = document.getElementById('hud')!;
   private hotbarEl = document.getElementById('hotbar')!;
@@ -45,6 +73,9 @@ export class HUD {
   private toastTimer = 0;
   private heartImgs: HTMLImageElement[] = [];
   private heartUrls = { full: heartDataUrl('full'), half: heartDataUrl('half'), empty: heartDataUrl('empty') };
+  private vitalityEl = document.getElementById('vitality-row')!;
+  private shankImgs: HTMLImageElement[] = [];
+  private shankUrls = { full: shankDataUrl('full'), half: shankDataUrl('half'), empty: shankDataUrl('empty') };
 
   private inv: Inventory | null = null;
   onSelect: ((itemId: number | null) => void) | null = null;
@@ -172,6 +203,7 @@ export class HUD {
     this.modeEl.dataset.mode = mode;
     this.healthBarEl.classList.add('hidden'); // legacy bar replaced by hearts
     this.heartsEl.classList.toggle('hidden', mode !== 'survival');
+    this.vitalityEl.classList.toggle('hidden', mode !== 'survival');
     this.manaBarEl.classList.toggle('hidden', mode !== 'survival');
     this.dayEl.classList.remove('hidden');
     if (this.heartImgs.length === 0) {
@@ -180,7 +212,21 @@ export class HUD {
         img.className = 'heart';
         this.heartsEl.appendChild(img);
         this.heartImgs.push(img);
+        const sh = document.createElement('img');
+        sh.className = 'heart';
+        this.vitalityEl.appendChild(sh);
+        this.shankImgs.push(sh);
       }
+    }
+  }
+
+  /** Hunger/vitality row: 10 meat shanks, half granularity. */
+  setVitality(fraction: number): void {
+    const halves = Math.round(Math.max(0, Math.min(1, fraction)) * 20);
+    for (let i = 0; i < 10; i++) {
+      const img = this.shankImgs[i];
+      if (!img) continue;
+      img.src = halves >= i * 2 + 2 ? this.shankUrls.full : halves === i * 2 + 1 ? this.shankUrls.half : this.shankUrls.empty;
     }
   }
 

@@ -34,6 +34,11 @@ export class Environment {
   private clouds: THREE.Group;
   private time = 0.3; // 0..1 day fraction, start mid-morning
   private theme: Theme = THEMES.natural;
+  /** Clock speed multiplier (cheats can crank it). */
+  timeScale = 1;
+  private fogNearBase = 60;
+  private fogFarBase = 170;
+  private fogMult = 1;
 
   private dayTop = new THREE.Color();
   private duskTop = new THREE.Color();
@@ -63,7 +68,11 @@ export class Environment {
     this.nightTop.setHex(this.theme.night);
 
     const far = renderDistanceChunks * CHUNK_SIZE;
-    this.scene.fog = new THREE.Fog(this.theme.day, far * 0.45, far * 0.98);
+    this.fogNearBase = far * 0.45;
+    this.fogFarBase = far * 0.98;
+    this.fogMult = 1;
+    this.timeScale = 1;
+    this.scene.fog = new THREE.Fog(this.theme.day, this.fogNearBase, this.fogFarBase);
     this.cloudSpread = far * 2;
 
     // rebuild clouds
@@ -92,8 +101,17 @@ export class Environment {
   }
   skipToMorning(): void { this.time = 0.3; }
 
+  /** Squeeze or restore the fog distance (pea-soup cheat). */
+  setFogScale(mult: number): void {
+    this.fogMult = mult;
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.near = this.fogNearBase * this.fogMult;
+      this.scene.fog.far = this.fogFarBase * this.fogMult;
+    }
+  }
+
   update(dt: number, playerX: number, playerZ: number): void {
-    this.time = (this.time + dt / DAY_LENGTH_SECONDS) % 1;
+    this.time = (this.time + dt * this.timeScale / DAY_LENGTH_SECONDS) % 1;
     const t = this.time;
 
     // daylight factor: 1 at noon-ish, 0 at night

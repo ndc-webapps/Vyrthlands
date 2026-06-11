@@ -416,6 +416,38 @@ export class MobManager {
     return pool[pool.length - 1];
   }
 
+  /** Admin/cheat spawn: drop hostiles near a position. Returns count spawned. */
+  spawnNear(world: World, pos: THREE.Vector3, count: number, bossOnly = false): number {
+    const pool = this.world_.defs.filter((e) =>
+      bossOnly ? e.behavior === 'boss' : (e.behavior !== 'roam' && e.behavior !== 'flee')
+    );
+    if (pool.length === 0) return 0;
+    let spawned = 0;
+    for (let i = 0; i < count * 3 && spawned < count; i++) {
+      const def = pool[Math.floor(Math.random() * pool.length)];
+      const a = Math.random() * Math.PI * 2;
+      const r = 8 + Math.random() * 8;
+      const x = Math.floor(pos.x + Math.cos(a) * r);
+      const z = Math.floor(pos.z + Math.sin(a) * r);
+      if (!world.inBounds(x, 0, z)) continue;
+      const y = world.surfaceY(x, z);
+      if (y <= world.waterLevel + 1 || y >= 92) continue;
+      const m = new Mob(x + 0.5, y, z + 0.5, def);
+      if (m.airborne) m.pos.y += 5;
+      m.aggro = true;
+      this.group.add(m.group);
+      this.mobs.push(m);
+      spawned++;
+    }
+    return spawned;
+  }
+
+  /** Spawn this world's boss near a position; returns its name. */
+  spawnBossNear(world: World, pos: THREE.Vector3): string | null {
+    if (this.spawnNear(world, pos, 1, true) === 0) return null;
+    return this.mobs[this.mobs.length - 1].def.name;
+  }
+
   // ---------- physics ----------
   private collides(world: World, m: Mob, x: number, y: number, z: number): boolean {
     const hw = m.hitW / 2;

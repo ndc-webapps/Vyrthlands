@@ -1549,3 +1549,40 @@ body.touch-mode #controls-help { display: none; }
 }
 .death-inner p { color: #ffd8d8; font-family: 'Silkscreen', monospace; margin: 0 0 8px; }
 .death-inner button { min-height: 48px; font-size: 15px; }
+
+/* ---------- vitality (hunger) row ---------- */
+#vitality-row {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 96px; display: flex; gap: 2px; z-index: 3;
+  margin-left: 252px; /* sits right of the hearts */
+}
+#vitality-row .heart { width: 21px; height: 18px; image-rendering: pixelated; }
+@media (max-width: 900px) {
+  #vitality-row { margin-left: 0; bottom: 118px; }
+}
+
+/* ---------- chat ---------- */
+#chat-box {
+  position: absolute; left: 14px; bottom: 120px; z-index: 5;
+  width: min(420px, 60vw); display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+#chat-messages { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow: hidden; }
+.chat-line {
+  font-family: 'Silkscreen', monospace; font-size: 12px; color: #ffffff;
+  background: rgba(8, 10, 16, 0.55); padding: 3px 8px; width: fit-content;
+  max-width: 100%; word-break: break-word;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.7);
+  transition: opacity 1.2s ease;
+}
+.chat-line b { color: #7df0ff; }
+.chat-system { color: #ffe080; }
+.chat-old { opacity: 0; }
+.chat-focus .chat-old { opacity: 1; } /* history returns while typing */
+#chat-input {
+  pointer-events: auto;
+  font-family: 'Silkscreen', monospace; font-size: 13px; color: #fff;
+  background: rgba(8, 10, 16, 0.8); border: 2px solid #4a4a55;
+  padding: 8px 10px; outline: none; width: 100%;
+}
+#chat-input:focus { border-color: #7df0ff; }

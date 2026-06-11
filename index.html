@@ -302,13 +302,18 @@
       <div><b>WASD</b> move / <b>Space</b> jump / <b>F</b> fly</div>
       <div><b>LMB</b> break / <b>RMB</b> place/use / <b>1-0</b> slots</div>
       <div><b>B</b> backpack / <b>C</b> craft / <b>K</b> character</div>
-      <div><b>Q</b>/<b>E</b> skills</div>
-      <div><b>Esc</b> menu</div>
+      <div><b>Q</b>/<b>E</b> skills / <b>V</b> view</div>
+      <div><b>T</b> chat / <b>Esc</b> menu</div>
     </div>
     <div id="health-bar" class="hidden"><div id="health-fill"></div></div>
     <div id="hearts-row" class="hidden"></div>
     <div id="mana-bar" class="hidden"><div id="mana-fill"></div></div>
     <div id="day-indicator" class="hidden"></div>
+    <div id="vitality-row" class="hidden"></div>
+    <div id="chat-box" class="hidden">
+      <div id="chat-messages"></div>
+      <input id="chat-input" class="hidden" maxlength="200" placeholder="Chat… (Enter to send, Esc to close)" autocomplete="off" spellcheck="false" />
+    </div>
     <div id="break-progress" class="hidden"><div></div></div>
     <div id="skill-bar" class="hidden"></div>
     <div id="hotbar"></div>
@@ -443,6 +448,7 @@
       <button id="tbtn-pause" class="tbtn tbtn-small">| |</button>
       <button id="tbtn-pack" class="tbtn tbtn-small">Bag</button>
       <button id="tbtn-view" class="tbtn tbtn-small">View</button>
+      <button id="tbtn-chat" class="tbtn tbtn-small">Chat</button>
     </div>
   </div>
 

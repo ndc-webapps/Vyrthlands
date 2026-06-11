@@ -72,8 +72,10 @@ export interface ItemDef {
   name: string;
   stack: number;
   tool?: ToolDef;
-  /** Eat to heal this fraction of max health (right-click in survival). */
+  /** Eat to fill this fraction of the vitality (hunger) bar. */
   food?: number;
+  /** Use to directly restore this fraction of health (bandages). */
+  heals?: number;
   /** Damage reduction fraction while equipped. */
   armor?: number;
   /** Which equipment slot this fits ('head' | 'body' | 'legs' | 'boots'). */
@@ -258,7 +260,7 @@ export const ITEMS: Record<number, ItemDef> = {
   [Item.PlasmaCell]: mat(Item.PlasmaCell, 'Plasma Cell', shard('#ff50d0', '#ffd0f0')),
   [Item.RawMeat]: fdef(Item.RawMeat, 'Raw Meat', 0.1, meatIcon(true)),
   [Item.CookedMeat]: fdef(Item.CookedMeat, 'Cooked Meat', 0.35, meatIcon(false)),
-  [Item.Bandage]: fdef(Item.Bandage, 'Bandage', 0.3, bandageIcon),
+  [Item.Bandage]: { id: Item.Bandage, name: 'Bandage', stack: 16, heals: 0.3, icon: bandageIcon },
   [Item.LeatherCap]: adef(Item.LeatherCap, 'Hide Cap', 'head', 0.04, helmIcon('#a87848', '#7a4a2a')),
   [Item.LeatherTunic]: adef(Item.LeatherTunic, 'Hide Tunic', 'body', 0.06, chestIcon('#a87848', '#7a4a2a')),
   [Item.LeatherPants]: adef(Item.LeatherPants, 'Hide Pants', 'legs', 0.05, legsIcon('#a87848', '#7a4a2a')),

@@ -16,6 +16,7 @@ export interface SaveData {
   player: { x: number; y: number; z: number; yaw: number; pitch: number };
   health: number;
   mana: number;
+  vitality?: number;
   spawn: { x: number; z: number } | null;
   timeOfDay: number;
   inventory: unknown;
@@ -25,6 +26,7 @@ export interface SaveExtras {
   role: RoleId;
   health: number;
   mana: number;
+  vitality?: number;
   spawn: { x: number; z: number } | null;
   timeOfDay: number;
   inventory: unknown;
@@ -53,6 +55,7 @@ export function buildSaveData(
     },
     health: extras.health,
     mana: extras.mana,
+    vitality: extras.vitality ?? 1,
     spawn: extras.spawn,
     timeOfDay: extras.timeOfDay,
     inventory: extras.inventory,

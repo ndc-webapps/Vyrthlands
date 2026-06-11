@@ -242,8 +242,9 @@ wss.on('connection', async (ws, req) => {
   room.set(user.id, { ws, username: user.username });
   broadcast(serverId, { type: 'join', username: user.username, players: roomUsers(serverId) });
 
+  let lastChat = 0;
   ws.on('message', (raw) => {
-    // live position relay so friends can see each other move
+    // live relay: positions, chat, block edits
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.type === 'pos') {
@@ -251,6 +252,17 @@ wss.on('connection', async (ws, req) => {
           type: 'pos', username: user.username, role: msg.role,
           x: msg.x, y: msg.y, z: msg.z, yaw: msg.yaw,
         });
+      } else if (msg.type === 'chat') {
+        const t = Date.now();
+        if (t - lastChat < 400) return; // basic flood protection
+        lastChat = t;
+        const text = String(msg.text ?? '').replace(/[\u0000-\u001f]/g, '').slice(0, 200);
+        if (text) broadcast(serverId, { type: 'chat', username: user.username, text });
+      } else if (msg.type === 'block') {
+        const { x, y, z, id } = msg;
+        if ([x, y, z, id].every((v) => Number.isFinite(v))) {
+          broadcast(serverId, { type: 'block', username: user.username, x, y, z, id });
+        }
       }
     } catch { /* ignore malformed packets */ }
   });

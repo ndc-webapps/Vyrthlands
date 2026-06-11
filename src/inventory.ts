@@ -1,5 +1,5 @@
 import { itemStack, ITEMS } from './items';
-import { HOTBAR_BLOCKS } from './blocks';
+import { HOTBAR_BLOCKS, BLOCKS } from './blocks';
 
 export interface Slot {
   item: number;
@@ -25,6 +25,13 @@ export class Inventory {
   constructor(public creative: boolean) {
     if (creative) {
       HOTBAR_BLOCKS.forEach((b, i) => { this.hotbar[i] = { item: b, count: Infinity }; });
+      // creative palette: every other placeable block fills the backpack
+      let slot = 0;
+      for (const key of Object.keys(BLOCKS)) {
+        const id = Number(key);
+        if (HOTBAR_BLOCKS.includes(id) || slot >= PACK_SIZE) continue;
+        this.pack[slot++] = { item: id, count: Infinity };
+      }
     }
   }
 

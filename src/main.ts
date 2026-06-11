@@ -5,6 +5,8 @@ import {
 } from './config';
 import { PlayerModel } from './playerModel';
 import { RemotePlayers } from './remotePlayers';
+import { Chat } from './ui/chat';
+import { handleCheatLine, CheatContext } from './cheats';
 import { Block, BLOCKS } from './blocks';
 import { buildAtlas } from './textures';
 import { World } from './world/world';
@@ -81,6 +83,8 @@ let worldSize: WorldSizeKey = 'medium';
 let renderDistance: RenderDistanceKey = 'normal';
 let health = 1.0;
 let mana = 1.0;
+let vitality = 1.0; // hunger bar: 1 = full
+let starveWarned = false;
 let spawnPoint: { x: number; z: number } | null = null;
 let running = false;
 let paused = false;
@@ -92,6 +96,8 @@ let meleeCooldown = 0;
 
 const hud = new HUD(atlas);
 const invUI = new InventoryUI(atlas);
+const chat = new Chat();
+const cheatState = { unlocked: false };
 const auth = new AuthStore();
 const serverApi = new ServerApi(auth);
 const presence = new Presence();
@@ -419,15 +425,75 @@ async function playServer(s: ServerInfo): Promise<void> {
   }
 }
 
-/** Hook the presence socket up to toasts + remote avatars. */
+/** Hook the presence socket up to toasts, remote avatars, chat, block sync. */
 function connectPresence(s: ServerInfo): void {
   presence.connect(auth.token!, s.id);
-  presence.onEvent = (msg) => hud.toast(msg);
+  presence.onEvent = (msg) => { hud.toast(msg); chat.add(null, msg); };
   presence.onPos = (username, r, x, y, z, yaw) => {
     if (username !== auth.user?.username) remotes.upsert(username, r, x, y, z, yaw);
   };
   presence.onPlayers = (list) => remotes.prune(list, auth.user?.username ?? '');
+  presence.onChat = (username, text) => chat.add(username, text);
+  presence.onBlock = (username, x, y, z, id) => {
+    if (username === auth.user?.username || !world) return;
+    if (world.inBounds(x, y, z)) world.setBlock(x, y, z, id); // dirty chunk -> auto re-mesh
+  };
 }
+
+/** Place/break that also broadcasts to friends in the server. */
+function setBlockSynced(x: number, y: number, z: number, id: number): void {
+  world?.setBlock(x, y, z, id);
+  if (currentServer) presence.sendBlock(x, y, z, id);
+}
+
+// ---------- chat + cheat commands ----------
+function buildCheatCtx(): CheatContext | null {
+  if (!player || !inventory || !world) return null;
+  return {
+    player, inventory, mobs, env: environment, effects,
+    setHealth: (f) => { health = f; hud.setHealth(f); },
+    setVitality: (f) => { vitality = f; hud.setVitality(f); },
+    cycleRole: () => {
+      const order: RoleId[] = ['swordsman', 'assassin', 'wizard', 'healer', 'gunner'];
+      role = order[(order.indexOf(role) + 1) % order.length];
+      stats = computeStats(role);
+      player!.speedMult = stats.speedMult;
+      playerModel.setRole(role);
+      hud.setMode(mode, ROLES[role].name);
+      hud.setSkills(ROLE_SKILLS[role].map((id) => SKILLS[id]), true);
+      updateSkillHud();
+      invUI.bind(inventory!, ROLES[role], stats);
+      return role;
+    },
+    spawnHostiles: (n) => mobs.spawnNear(world!, player!.position, n),
+    spawnBoss: () => mobs.spawnBossNear(world!, player!.position),
+  };
+}
+
+function openChatInput(): void {
+  if (!running || paused || uiOpen || dead || chat.isOpen) return;
+  chat.openInput();
+  player?.keys.clear();
+  mouseButtons.clear();
+  if (!isTouch) document.exitPointerLock();
+}
+
+chat.onClose = () => {
+  if (!isTouch && running && !paused && !uiOpen && !dead) requestPointerLock();
+};
+
+chat.onSend = (text) => {
+  const cheatLines = handleCheatLine(text, cheatState, buildCheatCtx);
+  if (cheatLines) {
+    for (const line of cheatLines) chat.add(null, line);
+    return; // commands and cheat codes never go to the network
+  }
+  if (currentServer) {
+    presence.sendChat(text); // server echoes back to everyone including us
+  } else {
+    chat.add(auth.user?.username ?? 'You', text);
+  }
+};
 
 btnServerBack.addEventListener('click', showLanding);
 btnServerCreate.addEventListener('click', () => {
@@ -505,7 +571,7 @@ async function handleCreateWorld(): Promise<void> {
 function saveCloud(silent = false): void {
   if (!currentServer || !world || !player || !inventory) return;
   const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
-    role, health, mana, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
+    role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
   });
   serverApi.save(currentServer.id, data, { edits: data.edits })
     .then(() => { if (!silent) hud.toast('Progress saved to server'); })
@@ -515,7 +581,7 @@ function saveCloud(silent = false): void {
 window.addEventListener('beforeunload', () => {
   if (!currentServer || !world || !player || !inventory) return;
   const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
-    role, health, mana, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
+    role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
   });
   serverApi.saveBeacon(currentServer.id, data, { edits: data.edits });
 });
@@ -638,12 +704,14 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
     spawnPoint = save.spawn;
     health = save.health;
     mana = save.mana;
+    vitality = save.vitality ?? 1;
   } else {
     const sp = world.findSpawn();
     player.spawn(sp.x, sp.z);
     spawnPoint = null;
     health = 1.0;
     mana = 1.0;
+    vitality = 1.0;
   }
   worldRenderer.buildInitial(player.position.x, player.position.z);
 
@@ -652,7 +720,9 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   updateSkillHud();
   hud.setHealth(health);
   hud.setMana(mana);
+  hud.setVitality(vitality);
   hud.show();
+  chat.show();
   hud.select(inventory.selected);
   playerModel.setRole(role);
   playerModel.setVisible(thirdPerson);
@@ -678,8 +748,10 @@ function respawn(): void {
   health = 1.0;
   mana = 1.0;
   air = 1.0;
+  vitality = 1.0;
   hud.setHealth(health);
   hud.setMana(mana);
+  hud.setVitality(vitality);
 }
 
 /** Classic death screen: pause the world, show cause, wait for Respawn. */
@@ -755,6 +827,12 @@ function openUI(tab: 'backpack' | 'crafting' | 'character', station: Station = '
 // ---------- Input ----------
 document.addEventListener('keydown', (e) => {
   if (!running) return;
+  if (chat.isOpen) return; // chat input handles its own keys
+  if (!uiOpen && !paused && !dead && (e.code === 'KeyT' || e.code === 'Enter')) {
+    openChatInput();
+    e.preventDefault();
+    return;
+  }
   if (uiOpen) {
     if (e.code === 'KeyB' || e.code === 'Escape' || e.code === 'KeyC' || e.code === 'KeyK') {
       invUI.close();
@@ -846,21 +924,26 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
 
 let eatCooldown = 0;
 
-/** Right-click with food held: eat to heal (survival only). */
+/** Right-click with food/bandage held: food fills hunger, bandages heal. */
 function tryEat(): boolean {
   if (!inventory || mode !== 'survival' || eatCooldown > 0) return false;
   const slot = inventory.selectedSlot();
-  const food = slot ? ITEMS[slot.item]?.food : undefined;
-  if (!food) return false;
-  if (health >= 1) {
-    hud.toast('Already at full health');
-    return true; // held food but nothing to do — still consume the click
+  const def = slot ? ITEMS[slot.item] : undefined;
+  if (!def || (!def.food && !def.heals)) return false;
+  if (def.heals) {
+    if (health >= 1) { hud.toast('Already at full health'); return true; }
+    heal(def.heals * stats.healItemMult);
+    hud.toast(`Used ${def.name} (+${Math.round(def.heals * stats.healItemMult * 100)} HP)`);
+  } else {
+    if (vitality >= 1) { hud.toast('Not hungry right now'); return true; }
+    vitality = Math.min(1, vitality + def.food! * stats.healItemMult);
+    heal(0.05); // a good meal patches you up a little too
+    hud.setVitality(vitality);
+    hud.toast(`Ate ${def.name}`);
   }
-  heal(food * stats.healItemMult);
   inventory.consumeSelected();
   eatCooldown = 0.8;
   viewModel.triggerSwing();
-  hud.toast(`Ate ${itemName(slot!.item)} (+${Math.round(food * stats.healItemMult * 100)} HP)`);
   return true;
 }
 
@@ -875,7 +958,7 @@ function tryPlace(): void {
   if (BLOCKS[slot.item].solid && player.overlapsBlock(px, py, pz)) return;
   const existing = world.getBlock(px, py, pz);
   if (existing !== Block.Air && existing !== Block.Water) return;
-  world.setBlock(px, py, pz, slot.item);
+  setBlockSynced(px, py, pz, slot.item);
   inventory.consumeSelected();
   viewModel.triggerSwing();
 }
@@ -983,7 +1066,7 @@ function castSkill(index: number): void {
 
 function finishBreak(x: number, y: number, z: number, blockId: number): void {
   if (!world || !inventory) return;
-  world.setBlock(x, y, z, Block.Air);
+  setBlockSynced(x, y, z, Block.Air);
   if (mode === 'survival') {
     const held = inventory.selectedSlot();
     const drop = dropFor(blockId, held?.item ?? null, Math.random());
@@ -1010,7 +1093,7 @@ function updateInteraction(dt: number): void {
     const blockId = world.getBlock(x, y, z);
     if (mode === 'creative') {
       if (breakCooldown <= 0 && BLOCKS[blockId]) {
-        world.setBlock(x, y, z, Block.Air);
+        setBlockSynced(x, y, z, Block.Air);
         viewModel.triggerSwing();
         breakCooldown = CREATIVE_BREAK_REPEAT;
       }
@@ -1083,8 +1166,18 @@ function updateSurvival(dt: number): void {
     air = Math.min(1, air + dt / 3);
   }
 
+  // hunger: drains slowly, faster while sprinting; gates regen; starvation hurts
+  const sprinting = (player.keys.has('ControlLeft') || player.keys.has('ControlRight')) &&
+    Math.hypot(player.velocity.x, player.velocity.z) > 3;
+  vitality = Math.max(0, vitality - dt / 600 - (sprinting ? dt / 90 : 0));
+  hud.setVitality(vitality);
+  if (vitality <= 0) {
+    health = Math.max(0.05, health - 0.012 * dt); // starving: drains to half a heart
+    if (!starveWarned) { starveWarned = true; hud.toast('You are starving! Eat something.'); chat.add(null, 'You are starving! Eat something.'); }
+  } else starveWarned = false;
+
   if (inLava) health -= 0.35 * dt;
-  else if (!inWater) health += (stats.regenPerSec + (effects.regenBoostT > 0 ? 0.08 : 0)) * dt;
+  else if (!inWater && vitality > 0.3) health += (stats.regenPerSec + (effects.regenBoostT > 0 ? 0.08 : 0)) * dt;
 
   health = Math.max(0, Math.min(1, health));
   mana = Math.min(1, mana + (18 * stats.manaRegenMult / stats.manaMax) * dt);
