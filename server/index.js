@@ -124,6 +124,14 @@ app.post('/api/logout', auth, wrap(async (req, res) => {
 
 app.get('/api/me', auth, (req, res) => res.json({ user: req.user }));
 
+// TEMP DEBUG — remove after diagnosing deploy DB connection
+app.get('/api/_debug', wrap(async (req, res) => {
+  const url = process.env.DATABASE_URL || '';
+  const host = url.replace(/^.*@/, '').replace(/\?.*$/, '');
+  const c = await db.get('SELECT count(*)::int AS n FROM users');
+  res.json({ engine: db.engine, dbHost: host || null, userCount: c?.n ?? null });
+}));
+
 // ---------- server (world/lobby) routes ----------
 app.get('/api/servers', auth, wrap(async (req, res) => {
   const rows = await db.all(
