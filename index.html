@@ -262,7 +262,14 @@
       </div>
       <input id="login-username" type="text" placeholder="Username" autocomplete="username" maxlength="16" />
       <input id="login-email" type="email" placeholder="Email (optional)" autocomplete="email" class="hidden" />
-      <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
+      <div class="pw-row">
+        <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" />
+        <button id="pw-eye" class="pw-eye" type="button" title="Show password">Show</button>
+      </div>
+      <div class="pw-row hidden" id="confirm-row">
+        <input id="login-confirm" type="password" placeholder="Retype password" autocomplete="new-password" />
+        <button id="pw-eye2" class="pw-eye" type="button" title="Show password">Show</button>
+      </div>
       <p id="login-error" class="auth-error hidden"></p>
       <button id="login-submit" class="primary">Login</button>
       <button id="login-forgot" class="link-btn">Forgot Password</button>
@@ -410,6 +417,21 @@
   <div id="inv-overlay" class="hidden"></div>
 
   <div id="toast" class="hidden"></div>
+
+  <!-- Touch controls (phones / tablets / iPad) -->
+  <div id="touch-controls" class="hidden">
+    <div id="joystick-zone"><div id="joystick-base"><div id="joystick-knob"></div></div></div>
+    <div id="look-zone"></div>
+    <div class="touch-btns-right">
+      <button id="tbtn-jump" class="tbtn">Jump</button>
+      <button id="tbtn-break" class="tbtn tbtn-wide">Break</button>
+      <button id="tbtn-place" class="tbtn tbtn-wide">Place</button>
+    </div>
+    <div class="touch-btns-top">
+      <button id="tbtn-pause" class="tbtn tbtn-small">| |</button>
+      <button id="tbtn-pack" class="tbtn tbtn-small">Bag</button>
+    </div>
+  </div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

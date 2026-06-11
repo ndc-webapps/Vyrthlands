@@ -14,6 +14,8 @@ export class Player {
   flying = false;
   onGround = false;
   speedMult = 1; // role/equipment movement modifier
+  /** Analog move input from the touch joystick: forward + strafe in [-1, 1]. */
+  touchMove = { f: 0, s: 0 };
   private fallPeakY = 0;     // highest Y while airborne
   private landedBlocks = 0;  // fall height of the most recent landing
 
@@ -67,7 +69,7 @@ export class Player {
     dt = Math.min(dt, 0.05); // avoid tunneling on tab-switch frames
 
     // wish direction in world space from yaw
-    let fwd = 0, strafe = 0;
+    let fwd = this.touchMove.f, strafe = this.touchMove.s;
     if (this.keys.has('KeyW')) fwd += 1;
     if (this.keys.has('KeyS')) fwd -= 1;
     if (this.keys.has('KeyD')) strafe += 1;

@@ -1,4 +1,4 @@
-import { AuthStore } from './auth';
+import { AuthStore, API_BASE } from './auth';
 import { SaveData } from './save';
 
 /** Server (shared world/lobby) records + per-player cloud progress + presence. */
@@ -53,7 +53,7 @@ export class ServerApi {
     const token = this.auth.token;
     if (!token) return;
     navigator.sendBeacon(
-      `/api/progress/${serverId}?token=${encodeURIComponent(token)}`,
+      `${API_BASE}/api/progress/${serverId}?token=${encodeURIComponent(token)}`,
       new Blob([JSON.stringify({ progress, world })], { type: 'application/json' })
     );
   }
@@ -68,8 +68,10 @@ export class Presence {
 
   connect(token: string, serverId: string): void {
     this.disconnect();
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    this.ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&server=${encodeURIComponent(serverId)}`);
+    const base = API_BASE
+      ? API_BASE.replace(/^http/, 'ws')
+      : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+    this.ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}&server=${encodeURIComponent(serverId)}`);
     this.ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);

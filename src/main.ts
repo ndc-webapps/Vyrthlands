@@ -122,6 +122,10 @@ const tabRegister = document.getElementById('tab-register')!;
 const loginUsername = document.getElementById('login-username') as HTMLInputElement;
 const loginEmail = document.getElementById('login-email') as HTMLInputElement;
 const loginPassword = document.getElementById('login-password') as HTMLInputElement;
+const loginConfirm = document.getElementById('login-confirm') as HTMLInputElement;
+const confirmRow = document.getElementById('confirm-row')!;
+const pwEye = document.getElementById('pw-eye')!;
+const pwEye2 = document.getElementById('pw-eye2')!;
 const loginError = document.getElementById('login-error')!;
 const accountChip = document.getElementById('account-chip')!;
 const accountName = document.getElementById('account-name')!;
@@ -235,6 +239,7 @@ function setAuthTab(t: 'login' | 'register'): void {
   tabLogin.classList.toggle('active', t === 'login');
   tabRegister.classList.toggle('active', t === 'register');
   loginEmail.classList.toggle('hidden', t === 'login');
+  confirmRow.classList.toggle('hidden', t === 'login');
   loginSubmit.textContent = t === 'login' ? 'Login' : 'Create Account';
   loginPassword.autocomplete = t === 'login' ? 'current-password' : 'new-password';
   authError('');
@@ -254,8 +259,20 @@ function updateAccountUI(): void {
   accountName.textContent = u ? u.username : '';
 }
 
+function toggleEye(btn: HTMLElement, input: HTMLInputElement): void {
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.textContent = show ? 'Hide' : 'Show';
+}
+pwEye.addEventListener('click', () => toggleEye(pwEye, loginPassword));
+pwEye2.addEventListener('click', () => toggleEye(pwEye2, loginConfirm));
+
 async function submitAuth(): Promise<void> {
   authError('');
+  if (authTab === 'register' && loginPassword.value !== loginConfirm.value) {
+    authError('Passwords do not match');
+    return;
+  }
   loginSubmit.classList.add('loading');
   loginSubmit.textContent = authTab === 'login' ? 'Logging in…' : 'Creating…';
   try {
@@ -467,7 +484,12 @@ window.addEventListener('beforeunload', () => {
   serverApi.saveBeacon(currentServer.id, data, { edits: data.edits });
 });
 btnContinue.addEventListener('click', () => startGame(false));
-btnResume.addEventListener('click', () => requestPointerLock());
+btnResume.addEventListener('click', () => {
+  if (isTouch) {
+    paused = false;
+    pauseMenu.classList.add('hidden');
+  } else requestPointerLock();
+});
 btnSave.addEventListener('click', doSave);
 btnLoad.addEventListener('click', () => {
   if (hasSave()) {
@@ -617,12 +639,18 @@ function respawn(): void {
   hud.setMana(mana);
 }
 
+// ---------- Touch device detection ----------
+const isTouch = (navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
+if (isTouch) document.body.classList.add('touch-mode');
+
 // ---------- Pointer lock / pause / UI ----------
 function requestPointerLock(): void {
+  if (isTouch) return; // touch devices play without pointer lock
   canvas.requestPointerLock();
 }
 
 document.addEventListener('pointerlockchange', () => {
+  if (isTouch) return;
   const locked = document.pointerLockElement === canvas;
   if (!running) return;
   if (uiOpen) return; // inventory overlay manages its own state
@@ -636,7 +664,7 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 canvas.addEventListener('click', () => {
-  if (running && !paused && !uiOpen && document.pointerLockElement !== canvas) requestPointerLock();
+  if (!isTouch && running && !paused && !uiOpen && document.pointerLockElement !== canvas) requestPointerLock();
 });
 
 document.addEventListener('mousemove', (e) => {
@@ -996,6 +1024,115 @@ function updateSurvival(dt: number): void {
   }
 }
 
+// ---------- Touch controls (phones / tablets / iPad) ----------
+const touchControls = document.getElementById('touch-controls')!;
+if (isTouch) setupTouchControls();
+
+function setupTouchControls(): void {
+  hud.onSkillTap = (i) => { if (running && !paused && !uiOpen) castSkill(i); };
+
+  // --- virtual joystick (left) ---
+  const zone = document.getElementById('joystick-zone')!;
+  const base = document.getElementById('joystick-base')!;
+  const knob = document.getElementById('joystick-knob')!;
+  let joyId: number | null = null;
+  let cx = 0, cy = 0;
+  const R = 45;
+  const applyJoy = (t: Touch) => {
+    let dx = t.clientX - cx, dy = t.clientY - cy;
+    const len = Math.hypot(dx, dy);
+    if (len > R) { dx = dx / len * R; dy = dy / len * R; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    if (player) player.touchMove = { f: -dy / R, s: dx / R };
+  };
+  zone.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    joyId = t.identifier;
+    const rect = base.getBoundingClientRect();
+    cx = rect.left + rect.width / 2;
+    cy = rect.top + rect.height / 2;
+    applyJoy(t);
+    e.preventDefault();
+  }, { passive: false });
+  zone.addEventListener('touchmove', (e) => {
+    for (const t of Array.from(e.changedTouches)) if (t.identifier === joyId) applyJoy(t);
+    e.preventDefault();
+  }, { passive: false });
+  const endJoy = (e: TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.identifier === joyId) {
+        joyId = null;
+        knob.style.transform = 'translate(-50%, -50%)';
+        if (player) player.touchMove = { f: 0, s: 0 };
+      }
+    }
+  };
+  zone.addEventListener('touchend', endJoy);
+  zone.addEventListener('touchcancel', endJoy);
+
+  // --- look / camera (right) ---
+  const look = document.getElementById('look-zone')!;
+  let lookId: number | null = null;
+  let lx = 0, ly = 0;
+  look.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    lookId = t.identifier;
+    lx = t.clientX; ly = t.clientY;
+    e.preventDefault();
+  }, { passive: false });
+  look.addEventListener('touchmove', (e) => {
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.identifier === lookId && player && running && !paused && !uiOpen) {
+        player.handleMouseMove((t.clientX - lx) * 2.4, (t.clientY - ly) * 2.4);
+        lx = t.clientX; ly = t.clientY;
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const endLook = (e: TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null;
+  };
+  look.addEventListener('touchend', endLook);
+  look.addEventListener('touchcancel', endLook);
+
+  // --- action buttons ---
+  const hold = (id: string, down: () => void, up: () => void) => {
+    const el = document.getElementById(id)!;
+    el.addEventListener('touchstart', (e) => { down(); e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchend', (e) => { up(); e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchcancel', () => up());
+  };
+  hold('tbtn-jump', () => player?.keys.add('Space'), () => player?.keys.delete('Space'));
+  hold('tbtn-break', () => {
+    if (!running || paused || uiOpen) return;
+    if (mode === 'survival' && tryAttackMob()) return;
+    mouseButtons.add(0);
+  }, () => {
+    mouseButtons.delete(0);
+    breakProgress = 0;
+    hud.setBreakProgress(0);
+  });
+  hold('tbtn-place', () => {
+    if (!running || paused || uiOpen) return;
+    if (currentHit && world) {
+      const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
+      if (BLOCKS[target]?.interactable) { interactWith(target, currentHit.block); return; }
+    }
+    placeCooldown = 0;
+    mouseButtons.add(2);
+  }, () => mouseButtons.delete(2));
+  document.getElementById('tbtn-pause')!.addEventListener('click', () => {
+    if (!running) return;
+    paused = true;
+    mouseButtons.clear();
+    player?.keys.clear();
+    pauseMenu.classList.remove('hidden');
+  });
+  document.getElementById('tbtn-pack')!.addEventListener('click', () => {
+    if (running && !paused && !uiOpen) openUI('backpack');
+  });
+}
+
 // ---------- Main loop ----------
 const eyePos = new THREE.Vector3();
 const lookDir = new THREE.Vector3();
@@ -1057,6 +1194,7 @@ function frame(now: number): void {
 
   if (!paused && !uiOpen) updateInteraction(dt);
 
+  if (isTouch) touchControls.classList.toggle('hidden', !running || paused || uiOpen);
   worldRenderer.update(player.position.x, player.position.z);
   renderer.render(scene, camera);
 }

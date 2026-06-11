@@ -14,6 +14,10 @@ export interface User {
 
 const TOKEN_KEY = 'vyrthlands_session';
 
+/** Backend origin. Empty = same origin (vite proxy in dev, or server serving dist).
+ *  Set VITE_API_URL when the frontend is hosted separately (e.g. Vercel). */
+export const API_BASE: string = (import.meta as any).env?.VITE_API_URL?.replace(/\/$/, '') ?? '';
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -21,7 +25,7 @@ export class ApiError extends Error {
 async function call<T>(method: string, url: string, body?: unknown, token?: string | null): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await fetch(API_BASE + url, {
       method,
       headers: {
         'Content-Type': 'application/json',

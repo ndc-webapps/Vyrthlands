@@ -105,6 +105,8 @@ export class HUD {
   }
 
   private skillEls: HTMLElement[] = [];
+  /** Touch/click on a skill slot (mobile casting). */
+  onSkillTap: ((index: number) => void) | null = null;
 
   /** Render the two role skills with Q / R key labels. */
   setSkills(skills: SkillDef[], visible: boolean): void {
@@ -122,6 +124,7 @@ export class HUD {
         <span class="key">${keys[i]}</span>
         <span class="cost">${s.manaCost}</span>
         <div class="cd"></div>`;
+      el.addEventListener('click', () => this.onSkillTap?.(i));
       bar.appendChild(el);
       this.skillEls.push(el);
     });

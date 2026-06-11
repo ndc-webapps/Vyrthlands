@@ -1359,3 +1359,53 @@ button.loading { opacity: 0.6; pointer-events: none; }
   .server-toolbar { flex-direction: column; }
   .server-card { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------- password show/hide ---------- */
+.pw-row { display: flex; gap: 8px; align-items: stretch; }
+.pw-row input { flex: 1; min-width: 0; }
+.pw-eye {
+  flex: 0 0 auto; padding: 0 14px; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(232,236,244,0.8); font-weight: 700; font-size: 12px;
+}
+.pw-eye:hover { border-color: rgba(94,234,212,0.5); color: #5eead4; }
+
+/* ---------- touch controls ---------- */
+#touch-controls { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+#joystick-zone {
+  position: absolute; left: 0; bottom: 0; width: 45%; height: 55%;
+  pointer-events: auto; touch-action: none;
+}
+#look-zone {
+  position: absolute; right: 0; bottom: 0; width: 55%; height: 70%;
+  pointer-events: auto; touch-action: none;
+}
+#joystick-base {
+  position: absolute; left: 36px; bottom: 90px; width: 120px; height: 120px;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,0.25);
+  background: rgba(20,24,36,0.35); backdrop-filter: blur(4px);
+}
+#joystick-knob {
+  position: absolute; left: 50%; top: 50%; width: 52px; height: 52px;
+  border-radius: 50%; transform: translate(-50%, -50%);
+  background: rgba(125,240,255,0.35); border: 2px solid rgba(125,240,255,0.6);
+}
+.tbtn {
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+  border-radius: 14px; border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(20,24,36,0.5); color: #fff; font-weight: 800; font-size: 14px;
+  min-width: 64px; min-height: 64px; backdrop-filter: blur(4px);
+}
+.tbtn:active { background: rgba(125,240,255,0.3); border-color: rgba(125,240,255,0.7); }
+.tbtn-wide { min-width: 84px; }
+.tbtn-small { min-width: 52px; min-height: 44px; font-size: 12px; }
+.touch-btns-right {
+  position: absolute; right: 20px; bottom: 130px; display: flex;
+  flex-direction: column; gap: 12px; align-items: flex-end; pointer-events: none;
+}
+.touch-btns-right .tbtn { pointer-events: auto; }
+.touch-btns-top {
+  position: absolute; top: 12px; right: 12px; display: flex; gap: 10px; pointer-events: none;
+}
+.touch-btns-top .tbtn { pointer-events: auto; }
+body.touch-mode #controls-help { display: none; }
