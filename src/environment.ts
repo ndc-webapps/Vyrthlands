@@ -25,6 +25,7 @@ const THEMES: Record<WorldType, Theme> = {
   haunted: { day: 0x7c897d, dusk: 0x70506a, night: 0x080a12, cloudCount: 16 },
   wasteland: { day: 0xa69474, dusk: 0xb06b4a, night: 0x14100c, cloudCount: 7 },
   mythology: { day: 0xd0bc86, dusk: 0xd88d5a, night: 0x171228, cloudCount: 10 },
+  themepark: { day: 0x86d2f7, dusk: 0xf7a468, night: 0x121a3a, cloudCount: 10 },
 };
 
 /** Sky color, sun + sky lighting, fog, drifting clouds, day-night cycle. */

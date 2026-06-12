@@ -4,7 +4,7 @@ import { Block } from '../../blocks';
 export type WorldType =
   | 'flat' | 'natural' | 'prehistoric' | 'battlefront' | 'zombie'
   | 'medieval' | 'cyberpunk' | 'alien' | 'skyislands' | 'underworld'
-  | 'frozen' | 'pirate' | 'haunted' | 'wasteland' | 'mythology';
+  | 'frozen' | 'pirate' | 'haunted' | 'wasteland' | 'mythology' | 'themepark';
 
 export interface GenContext {
   seed: number;

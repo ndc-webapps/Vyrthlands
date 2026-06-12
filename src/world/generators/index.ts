@@ -1,6 +1,7 @@
 import { WorldGenerator, WorldType } from './types';
 import { flatGenerator } from './flatGenerator';
 import { naturalGenerator } from './naturalGenerator';
+import { themeParkGenerator } from './themeParkGenerator';
 import {
   prehistoricGenerator, warGenerator, zombieGenerator, medievalGenerator, cyberpunkGenerator,
   alienGenerator, skyIslandsGenerator, underworldGenerator, frozenGenerator, pirateGenerator,
@@ -25,4 +26,5 @@ export const GENERATORS: Record<WorldType, WorldGenerator> = {
   haunted: hauntedGenerator,
   wasteland: wastelandGenerator,
   mythology: mythologyGenerator,
+  themepark: themeParkGenerator,
 };

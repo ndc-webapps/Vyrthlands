@@ -18,6 +18,10 @@ export class Player {
   lookSens = 1;
   /** Analog move input from the touch joystick: forward + strafe in [-1, 1]. */
   touchMove = { f: 0, s: 0 };
+  /** Joystick pushed to the rim = sprint (Bedrock-style). */
+  touchSprint = false;
+  /** True while actually sprint-moving this frame (hunger drain reads this). */
+  sprinting = false;
   private fallPeakY = 0;     // highest Y while airborne
   private landedBlocks = 0;  // fall height of the most recent landing
 
@@ -91,8 +95,14 @@ export class Player {
       if (this.keys.has('Space')) vy += speed;
       if (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) vy -= speed;
       this.velocity.y = vy;
+      this.sprinting = false;
     } else {
-      const sprinting = (this.keys.has('ControlLeft') || this.keys.has('ControlRight')) && fwd > 0;
+      // Shift also sprints — Ctrl+W/Ctrl+Space hit browser/OS shortcuts and
+      // some keyboards can't report Ctrl+W+Space together (ghosting)
+      const sprintKey = this.keys.has('ControlLeft') || this.keys.has('ControlRight')
+        || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSprint;
+      const sprinting = sprintKey && fwd > 0;
+      this.sprinting = sprinting && Math.hypot(this.velocity.x, this.velocity.z) > 3;
       const speed = WALK_SPEED * this.speedMult * (sprinting ? 1.35 : 1);
       // smooth horizontal accel
       const accel = this.onGround ? 14 : 5;

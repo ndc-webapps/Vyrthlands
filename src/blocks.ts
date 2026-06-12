@@ -28,6 +28,10 @@ export const enum Block {
   Smelter = 24,
   Bed = 25,
   Lantern = 26,
+  CanopyRed = 27,
+  CanopyBlue = 28,
+  CanopyYellow = 29,
+  RideSeat = 30,
 }
 
 export type RenderBucket = 'opaque' | 'glow' | 'water' | 'cutout';
@@ -106,6 +110,14 @@ export const BLOCKS: Record<number, BlockDef> = {
     { hardness: 1.0, material: 'wood', interactable: true }),
   [Block.Lantern]: def(Block.Lantern, 'Lantern', Tile.Lantern, Tile.Lantern, Tile.Lantern,
     { bucket: 'glow', hardness: 1.0, material: 'wood' }),
+  [Block.CanopyRed]: def(Block.CanopyRed, 'Red Canopy', Tile.CanopyRed, Tile.CanopyRed, Tile.CanopyRed,
+    { hardness: 0.8, material: 'wood' }),
+  [Block.CanopyBlue]: def(Block.CanopyBlue, 'Blue Canopy', Tile.CanopyBlue, Tile.CanopyBlue, Tile.CanopyBlue,
+    { hardness: 0.8, material: 'wood' }),
+  [Block.CanopyYellow]: def(Block.CanopyYellow, 'Yellow Canopy', Tile.CanopyYellow, Tile.CanopyYellow, Tile.CanopyYellow,
+    { hardness: 0.8, material: 'wood' }),
+  [Block.RideSeat]: def(Block.RideSeat, 'Ride Seat', Tile.TicketPost, Tile.TicketPost, Tile.TicketPost,
+    { bucket: 'glow', hardness: 9999, material: 'none', requiredTier: 99, interactable: true }),
 };
 
 export function isOpaque(id: number): boolean {

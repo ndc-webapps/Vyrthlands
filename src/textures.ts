@@ -45,6 +45,10 @@ export const enum Tile {
   BedTop,
   BedSide,
   Lantern,
+  CanopyRed,
+  CanopyBlue,
+  CanopyYellow,
+  TicketPost,
 }
 
 // deterministic per-pixel hash → 0..1
@@ -335,7 +339,31 @@ const PAINTERS: Record<number, Painter> = {
       }
     }
   },
+  // carnival canopy stripes (vertical, white + color)
+  [Tile.CanopyRed]: (set) => canopy(set, [225, 60, 70], 140),
+  [Tile.CanopyBlue]: (set) => canopy(set, [60, 120, 230], 141),
+  [Tile.CanopyYellow]: (set) => canopy(set, [240, 190, 50], 142),
+  [Tile.TicketPost]: (set) => {
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+      const f = 0.92 + pnoise(x, y, 143) * 0.14;
+      const stripe = ((x + y) >> 1) % 2 === 0;
+      set(x, y, (stripe ? 235 : 250) * f, (stripe ? 70 : 235) * f, (stripe ? 90 : 200) * f);
+    }
+    // glowing star marker in the middle
+    for (const [sx, sy] of [[7, 5], [8, 5], [6, 7], [7, 7], [8, 7], [9, 7], [7, 9], [8, 9], [7, 6], [8, 6], [7, 8], [8, 8]]) {
+      set(sx, sy, 255, 240, 120);
+    }
+  },
 };
+
+function canopy(set: Parameters<Painter>[0], color: [number, number, number], salt: number): void {
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    const f = 0.9 + pnoise(x, y, salt) * 0.16;
+    const stripe = (x >> 1) % 2 === 0;
+    if (stripe) set(x, y, color[0] * f, color[1] * f, color[2] * f);
+    else set(x, y, 244 * f, 240 * f, 232 * f);
+  }
+}
 
 // scatter ore chunks with highlight pixel
 function orify(

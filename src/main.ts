@@ -12,6 +12,7 @@ import { buildAtlas } from './textures';
 import { World } from './world/world';
 import { WorldRenderer } from './world/worldRenderer';
 import { GENERATORS, WorldType } from './world/generators';
+import { themeParkRides, ParkRide } from './world/generators/themeParkGenerator';
 import { Player } from './player';
 import { raycastVoxel } from './raycast';
 import { Environment } from './environment';
@@ -108,6 +109,9 @@ let autosaveT = 0;
 let posSyncT = 0;
 let mobSyncT = 0;
 let clockT = 0;
+// theme park rides: seats placed by the generator, paths ridden here
+let parkRides: ParkRide[] = [];
+let activeRide: { ride: ParkRide; curve: THREE.CatmullRomCurve3; t: number } | null = null;
 hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
 invUI.onClose = () => {
@@ -202,6 +206,7 @@ const WORLD_INFOS: Record<WorldType, WorldInfo> = {
   haunted: info('Fog, dead forests, graveyards, cursed cottages.', 'High at night', 'Ghosts, witches, shadows', 'Soul Shard', 'Assassin/Wizard map.', ['wizard', 'healer', 'assassin']),
   wasteland: info('Ruined modern zones, scrap fields, toxic scars.', 'High', 'Mutants, raiders, machines', 'Scrap Iron', 'Scavenge and craft.', ['gunner', 'healer', 'assassin']),
   mythology: info('Temple lands, divine ruins, guardian arenas.', 'High', 'Guardians, beasts, titans', 'Ancient Relic', 'Boss temple hooks later.', ['wizard', 'swordsman', 'healer']),
+  themepark: info('Festival grounds with 20+ rideable attractions — coasters, water slides, the Sky Wheel, and more. Tap the glowing seat posts to ride.', 'None', 'None — peaceful park', 'Fun', 'Explore and ride everything.', ['swordsman', 'wizard', 'healer', 'gunner', 'assassin']),
 };
 function info(desc: string, danger: string, enemies: string, resource: string, hint: string, roles: RoleId[]): WorldInfo {
   return { desc, danger, enemies, resource, hint, roles };
@@ -844,6 +849,10 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   worldRenderer?.dispose();
   world = new World(seed, GENERATORS[worldType], WORLD_SIZES[worldSize]);
   mobs.setWorld(worldType);
+  activeRide = null;
+  parkRides = worldType === 'themepark'
+    ? themeParkRides({ seed, sizeBlocks: WORLD_SIZES[worldSize] * 16 })
+    : [];
   if (save) world.applyEdits(save.edits);
   else if (cloudEdits) world.applyEdits(cloudEdits); // joining a friend's already-built world
 
@@ -1029,6 +1038,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ') { castSkill(0); e.preventDefault(); return; }
   if (e.code === 'KeyE' || e.code === 'KeyR') { castSkill(1); e.preventDefault(); return; }
   player.keys.add(e.code);
+  if (e.code === 'Space') e.preventDefault(); // never scroll / re-click a focused button
   if (e.code === 'KeyF') {
     if (mode === 'creative') player.toggleFly();
     else if (player.flying) player.toggleFly(); // never stay airborne in survival
@@ -1093,6 +1103,8 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
     openUI('crafting', 'workbench');
   } else if (blockId === Block.Smelter) {
     openUI('crafting', 'smelter');
+  } else if (blockId === Block.RideSeat) {
+    startRideAt(pos.x, pos.y, pos.z);
   } else if (blockId === Block.Bed) {
     spawnPoint = { x: pos.x, z: pos.z };
     if (environment.isNight()) {
@@ -1108,6 +1120,44 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
       hud.toast('Spawn point set. You can sleep here at night.');
     }
   }
+}
+
+// ---------- theme park rides ----------
+function startRideAt(x: number, y: number, z: number): void {
+  if (activeRide || !player) return;
+  let best: ParkRide | null = null;
+  let bestD = 4;
+  for (const r of parkRides) {
+    const d = Math.hypot(r.seat[0] - x, r.seat[1] - y, r.seat[2] - z);
+    if (d < bestD) { best = r; bestD = d; }
+  }
+  if (!best) return;
+  const pts = best.path.map(([px, py, pz]) => new THREE.Vector3(px, py, pz));
+  activeRide = { ride: best, curve: new THREE.CatmullRomCurve3(pts, !!best.closed, 'centripetal'), t: 0 };
+  player.velocity.set(0, 0, 0);
+  player.keys.clear();
+  mouseButtons.clear();
+  hud.toast(`Riding ${best.name}! (jump to hop off)`);
+}
+
+function endRide(finished: boolean): void {
+  if (!activeRide || !player) return;
+  const seat = activeRide.ride.seat;
+  if (finished) player.position.set(seat[0] + 0.5, seat[1], seat[2] + 0.5);
+  player.velocity.set(0, 0, 0);
+  hud.toast(finished ? `${activeRide.ride.name} complete!` : 'Hopped off the ride');
+  activeRide = null;
+}
+
+/** Carry the player along the ride curve; look stays free. */
+function updateRide(dt: number): void {
+  if (!activeRide || !player) return;
+  activeRide.t += dt / activeRide.ride.duration;
+  if (activeRide.t >= 1) { endRide(true); return; }
+  if (player.keys.has('Space') && activeRide.t > 0.04) { endRide(false); return; }
+  const p = activeRide.curve.getPoint(activeRide.t);
+  player.position.set(p.x, p.y, p.z);
+  player.velocity.set(0, 0, 0);
 }
 
 let eatCooldown = 0;
@@ -1360,9 +1410,7 @@ function updateSurvival(dt: number): void {
   }
 
   // hunger: drains slowly, faster while sprinting; gates regen; starvation hurts
-  const sprinting = (player.keys.has('ControlLeft') || player.keys.has('ControlRight')) &&
-    Math.hypot(player.velocity.x, player.velocity.z) > 3;
-  vitality = Math.max(0, vitality - dt / 600 - (sprinting ? dt / 90 : 0));
+  vitality = Math.max(0, vitality - dt / 600 - (player.sprinting ? dt / 90 : 0));
   hud.setVitality(vitality);
   if (vitality <= 0) {
     health = Math.max(0.05, health - 0.012 * dt); // starving: drains to half a heart
@@ -1401,7 +1449,10 @@ function setupTouchControls(): void {
     const len = Math.hypot(dx, dy);
     if (len > R) { dx = dx / len * R; dy = dy / len * R; }
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    if (player) player.touchMove = { f: -dy / R, s: dx / R };
+    if (player) {
+      player.touchMove = { f: -dy / R, s: dx / R };
+      player.touchSprint = len >= R * 0.95; // push to the rim to sprint
+    }
   };
   zone.addEventListener('touchstart', (e) => {
     const t = e.changedTouches[0];
@@ -1421,7 +1472,10 @@ function setupTouchControls(): void {
       if (t.identifier === joyId) {
         joyId = null;
         knob.style.transform = 'translate(-50%, -50%)';
-        if (player) player.touchMove = { f: 0, s: 0 };
+        if (player) {
+          player.touchMove = { f: 0, s: 0 };
+          player.touchSprint = false;
+        }
       }
     }
   };
@@ -1568,7 +1622,8 @@ function frame(now: number): void {
   }
 
   if (!paused) {
-    if (!uiOpen) player.update(dt);
+    if (activeRide) updateRide(dt);
+    else if (!uiOpen) player.update(dt);
     environment.update(dt, player.position.x, player.position.z);
     invUI.update(dt);
 
@@ -1642,7 +1697,7 @@ function frame(now: number): void {
     highlight.visible = false;
   }
 
-  if (!paused && !uiOpen) updateInteraction(dt);
+  if (!paused && !uiOpen && !activeRide) updateInteraction(dt);
 
   clockT += dt;
   if (clockT > 0.5) {
