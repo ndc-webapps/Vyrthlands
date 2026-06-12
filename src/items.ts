@@ -65,6 +65,24 @@ export const enum Item {
   // extra weapons
   WoodSword = 169,
   StoneSword = 170,
+  // expanded tools / weapons
+  IronAxe = 171,
+  IronShovel = 172,
+  GoldSword = 173,
+  CrystalSword = 174,
+  VoidBlade = 175,
+  // expanded armor
+  GoldHelmet = 176,
+  GoldChestplate = 177,
+  GoldLeggings = 178,
+  GoldBoots = 179,
+  CrystalHelmet = 180,
+  CrystalChestplate = 181,
+  CrystalLeggings = 182,
+  CrystalBoots = 183,
+  // expanded food / consumables
+  TrailStew = 184,
+  SunfruitTonic = 185,
 }
 
 export interface ItemDef {
@@ -251,7 +269,7 @@ export const ITEMS: Record<number, ItemDef> = {
   [Item.FuelCell]: mat(Item.FuelCell, 'Fuel Cell', shard('#d85030', '#ffb070')),
   [Item.InfectedTissue]: mat(Item.InfectedTissue, 'Infected Tissue', lump('#6fa85a', '#b6ff70')),
   [Item.MedScrap]: mat(Item.MedScrap, 'Med Scrap', lump('#e8e8e8', '#f06a6a')),
-  [Item.CannedFood]: mat(Item.CannedFood, 'Canned Food', ingot('#9aa0a8', '#d8dce4')),
+  [Item.CannedFood]: fdef(Item.CannedFood, 'Canned Food', 0.4, ingot('#9aa0a8', '#d8dce4')),
   [Item.SilverOre]: mat(Item.SilverOre, 'Silver Ore', lump('#aeb8c8', '#ffffff')),
   [Item.MagicCrystal]: mat(Item.MagicCrystal, 'Magic Crystal', shard('#9a70ff', '#e0d0ff')),
   [Item.AncientRelic]: mat(Item.AncientRelic, 'Ancient Relic', ingot('#b89048', '#ffe0a0')),
@@ -274,6 +292,31 @@ export const ITEMS: Record<number, ItemDef> = {
   [Item.SoulShard]: mat(Item.SoulShard, 'Soul Shard', shard('#b890ff', '#f0e8ff')),
   [Item.CursedWood]: mat(Item.CursedWood, 'Cursed Wood', lump('#2b2230', '#6a4878')),
   [Item.MoonHerb]: mat(Item.MoonHerb, 'Moon Herb', shard('#b8d8c8', '#ffffff')),
+
+  // expanded tools / weapons
+  [Item.IronAxe]: tdef(Item.IronAxe, 'Iron Axe', tool('axe', 3, 5.5, 280, 6), axeIcon('#d0b29c', '#b09078')),
+  [Item.IronShovel]: tdef(Item.IronShovel, 'Iron Shovel', tool('shovel', 3, 5.5, 280, 3), shovelIcon),
+  [Item.GoldSword]: tdef(Item.GoldSword, 'Sun Gold Sword', tool('sword', 3, 1.5, 120, 8), swordIcon('#f0c850', '#c89c30')),
+  [Item.CrystalSword]: tdef(Item.CrystalSword, 'Crystal Sword', tool('sword', 4, 1.5, 500, 9), swordIcon('#7df0ff', '#3bb8e8')),
+  [Item.VoidBlade]: tdef(Item.VoidBlade, 'Void Blade', tool('sword', 4, 1.5, 400, 11), swordIcon('#c890ff', '#5a3a80')),
+  // expanded armor
+  [Item.GoldHelmet]: adef(Item.GoldHelmet, 'Sun Gold Helmet', 'head', 0.06, helmIcon('#f0c850', '#c89c30')),
+  [Item.GoldChestplate]: adef(Item.GoldChestplate, 'Sun Gold Chestplate', 'body', 0.09, chestIcon('#f0c850', '#c89c30')),
+  [Item.GoldLeggings]: adef(Item.GoldLeggings, 'Sun Gold Leggings', 'legs', 0.07, legsIcon('#f0c850', '#c89c30')),
+  [Item.GoldBoots]: adef(Item.GoldBoots, 'Sun Gold Boots', 'boots', 0.04, bootsIcon('#f0c850', '#c89c30')),
+  [Item.CrystalHelmet]: adef(Item.CrystalHelmet, 'Crystal Helmet', 'head', 0.09, helmIcon('#7df0ff', '#3bb8e8')),
+  [Item.CrystalChestplate]: adef(Item.CrystalChestplate, 'Crystal Chestplate', 'body', 0.13, chestIcon('#7df0ff', '#3bb8e8')),
+  [Item.CrystalLeggings]: adef(Item.CrystalLeggings, 'Crystal Leggings', 'legs', 0.1, legsIcon('#7df0ff', '#3bb8e8')),
+  [Item.CrystalBoots]: adef(Item.CrystalBoots, 'Crystal Boots', 'boots', 0.07, bootsIcon('#7df0ff', '#3bb8e8')),
+  // expanded food / consumables
+  [Item.TrailStew]: fdef(Item.TrailStew, 'Trail Stew', 0.55, (px) => {
+    for (let y = 8; y < 13; y++) for (let x = 3; x < 13; x++) px(x, y, y === 8 ? '#c87840' : '#7a4a2a');
+    for (let x = 5; x < 11; x++) px(x, 7, (x % 2) ? '#d08040' : '#a85a28'); // stew surface
+  }),
+  [Item.SunfruitTonic]: { id: Item.SunfruitTonic, name: 'Sunfruit Tonic', stack: 8, heals: 0.5, icon: (px) => {
+    for (let y = 5; y < 13; y++) for (let x = 6; x < 10; x++) px(x, y, y < 7 ? '#d8dce4' : '#ffb030');
+    px(7, 3, '#8a6437'); px(8, 3, '#8a6437'); px(7, 4, '#d8dce4'); px(8, 4, '#d8dce4'); // cork + neck
+  } },
 };
 
 export function itemName(id: number): string {

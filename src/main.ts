@@ -103,8 +103,10 @@ const serverApi = new ServerApi(auth);
 const presence = new Presence();
 let currentServer: ServerInfo | null = null;  // cloud session (null = local/guest)
 let creatingServer = false;                   // title screen is configuring a new cloud server
+let isLeader = false;                         // am I the simulation leader (mobs + clock)?
 let autosaveT = 0;
 let posSyncT = 0;
+let mobSyncT = 0;
 let clockT = 0;
 hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
@@ -480,7 +482,8 @@ async function playServer(s: ServerInfo): Promise<void> {
   }
 }
 
-/** Hook the presence socket up to toasts, remote avatars, chat, block sync. */
+/** Hook the presence socket up to toasts, remote avatars, chat, block sync,
+ *  and the shared simulation (mobs, clock, shots, sleeping). */
 function connectPresence(s: ServerInfo): void {
   presence.connect(auth.token!, s.id);
   presence.onEvent = (msg) => { hud.toast(msg); chat.add(null, msg); };
@@ -493,7 +496,56 @@ function connectPresence(s: ServerInfo): void {
     if (username === auth.user?.username || !world) return;
     if (world.inBounds(x, y, z)) world.setBlock(x, y, z, id); // dirty chunk -> auto re-mesh
   };
+
+  // ----- shared simulation -----
+  presence.onLeader = (leader) => {
+    const me = leader != null && leader === auth.user?.username;
+    if (me && !isLeader) mobs.becomeLeader();
+    isLeader = me;
+    mobs.remote = !me;
+  };
+  presence.onMobs = (snaps, t) => {
+    if (isLeader) return;
+    mobs.applySnapshot(snaps);
+    // adopt the leader's day/night clock (small drift is left alone)
+    if (t >= 0) {
+      const diff = Math.abs(environment.getTime() - t);
+      if (diff > 0.015 && diff < 0.985) environment.setTime(t);
+    }
+  };
+  presence.onMobHit = (username, id, dmg, kx, kz) => {
+    if (!isLeader || username === auth.user?.username) return;
+    const mob = mobs.byId(id);
+    if (mob) mobs.damage(mob, dmg, kx || kz ? new THREE.Vector3(kx, 0, kz) : undefined);
+  };
+  presence.onMobAtk = (target, dmg) => {
+    if (target === auth.user?.username && mode === 'survival') applyDamage(dmg);
+  };
+  presence.onShot = (username, x, y, z, dx, dy, dz, speed, dmg, color, hostile) => {
+    if (username === auth.user?.username) return;
+    const o = new THREE.Vector3(x, y, z);
+    const dir = new THREE.Vector3(dx, dy, dz);
+    if (hostile) projectiles.fireHostile(o, dir, speed, dmg, color); // can hit ME locally
+    else projectiles.fireVisual(o, dir, speed, color);               // friend's shot, cosmetic
+  };
+  presence.onSleep = (username) => {
+    environment.skipToMorning();
+    const who = username === auth.user?.username ? 'You' : username;
+    hud.toast(`${who} slept — morning has come`);
+    chat.add(null, `${who} slept through the night`);
+  };
 }
+
+// mob manager -> network bridges (no-ops outside a server session)
+mobs.onRemoteHit = (name, dmg) => {
+  if (currentServer && isLeader) presence.sendMobAtk(name, dmg);
+};
+mobs.onForwardHit = (id, dmg, kx, kz) => {
+  if (currentServer && !isLeader) presence.sendMobHit(id, dmg, kx, kz);
+};
+mobs.onHostileShot = (x, y, z, dx, dy, dz, speed, dmg, color) => {
+  if (currentServer && isLeader) presence.sendShot(x, y, z, dx, dy, dz, speed, dmg, color, true);
+};
 
 /** Place/break that also broadcasts to friends in the server. */
 function setBlockSynced(x: number, y: number, z: number, id: number): void {
@@ -695,6 +747,8 @@ btnQuit.addEventListener('click', () => {
   const backToServers = currentServer !== null && auth.loggedIn;
   currentServer = null;
   creatingServer = false;
+  isLeader = false;
+  mobs.remote = false;
   running = false;
   paused = false;
   uiOpen = false;
@@ -1005,8 +1059,14 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
   } else if (blockId === Block.Bed) {
     spawnPoint = { x: pos.x, z: pos.z };
     if (environment.isNight()) {
-      environment.skipToMorning();
-      hud.toast('You slept until morning. Spawn point set.');
+      if (currentServer) {
+        // multiplayer: the server echo wakes everyone to morning together
+        presence.sendSleep();
+        hud.toast('Spawn point set.');
+      } else {
+        environment.skipToMorning();
+        hud.toast('You slept until morning. Spawn point set.');
+      }
     } else {
       hud.toast('Spawn point set. You can sleep here at night.');
     }
@@ -1070,7 +1130,12 @@ function tryAttackMob(): boolean {
 
   if (kind === 'gun' || kind === 'staff') {
     const color = slot?.item === Item.Wand ? 0x8df06a : kind === 'gun' ? 0xffd070 : 0x7df0ff;
-    projectiles.fire(eyePos, lookDir, kind === 'gun' ? 34 : 24, damage * stats.rangedMult, color);
+    const speed = kind === 'gun' ? 34 : 24;
+    projectiles.fire(eyePos, lookDir, speed, damage * stats.rangedMult, color);
+    if (currentServer) {
+      // friends see the shot fly (cosmetic — damage resolves on my screen)
+      presence.sendShot(eyePos.x, eyePos.y, eyePos.z, lookDir.x, lookDir.y, lookDir.z, speed, 0, color, false);
+    }
     meleeCooldown = kind === 'gun' ? 0.45 : 0.65;
   } else {
     const mob = mobs.rayPick(eyePos, lookDir, kind === 'hand' ? 2.3 : 3.2);
@@ -1479,16 +1544,26 @@ function frame(now: number): void {
     });
     if (mode === 'survival') updateSurvival(dt);
     mobs.lastPlayerPos = player.position;
-    mobs.update(dt, world, player.position, environment.isNight(), projectiles);
+    mobs.targets = currentServer ? remotes.positions() : [];
+    if (!currentServer || isLeader) {
+      mobs.update(dt, world, player.position, environment.isNight(), projectiles);
+    } else {
+      mobs.remoteUpdate(dt); // follower: mirror the leader's mobs
+    }
 
-    // cloud autosave + presence position sync
+    // cloud autosave + presence position sync + leader mob/clock broadcast
     if (currentServer) {
       autosaveT += dt;
       posSyncT += dt;
+      mobSyncT += dt;
       if (autosaveT > 25) { autosaveT = 0; saveCloud(true); }
       if (posSyncT > 0.25) {
         posSyncT = 0;
         presence.sendPos(player.position.x, player.position.y, player.position.z, player.yaw, role);
+      }
+      if (isLeader && mobSyncT > 0.3) {
+        mobSyncT = 0;
+        presence.sendMobs(mobs.snapshot(), environment.getTime());
       }
       remotes.update(dt);
     }

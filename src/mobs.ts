@@ -11,6 +11,12 @@ const ALERT_RADIUS = 22;
 export class Mob {
   pos: THREE.Vector3;
   vel = new THREE.Vector3();
+  /** Network identity for multiplayer sync. */
+  id = 0;
+  defIndex = 0;
+  /** Follower mode: interpolation target from the leader's snapshot. */
+  netPos: THREE.Vector3 | null = null;
+  netYaw = 0;
   health: number;
   maxHealth: number;
   hurtT = 0;
@@ -124,9 +130,21 @@ export class MobManager {
   private group = new THREE.Group();
   private spawnCd = 0;
   private world_: WorldEnemies = enemiesForWorld('natural');
+  private nextId = 1;
+
+  /** Follower mode: mobs are mirrored from the leader's snapshots. */
+  remote = false;
+  /** Other players in the server (multiplayer targeting). */
+  targets: { name: string; pos: THREE.Vector3 }[] = [];
 
   onDeath: ((pos: THREE.Vector3, loot: Item) => void) | null = null;
   onPlayerHit: ((dmg: number) => void) | null = null;
+  /** Leader: one of my mobs hit another player (relay over the network). */
+  onRemoteHit: ((name: string, dmg: number) => void) | null = null;
+  /** Follower: I damaged a mirrored mob; forward to the leader. */
+  onForwardHit: ((id: number, dmg: number, kx: number, kz: number) => void) | null = null;
+  /** Leader: a mob fired a projectile (replicate to followers). */
+  onHostileShot: ((x: number, y: number, z: number, dx: number, dy: number, dz: number, speed: number, dmg: number, color: number) => void) | null = null;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -137,9 +155,18 @@ export class MobManager {
     this.clear();
   }
 
+  /** Route mob damage to the right player (local callback or network relay). */
+  private hitTarget(name: string, dmg: number): void {
+    if (name === '') this.onPlayerHit?.(dmg);
+    else this.onRemoteHit?.(name, dmg);
+  }
+
   update(dt: number, world: World, playerPos: THREE.Vector3, isNight: boolean, projectiles: ProjectileManager): void {
     this.trySpawn(dt, world, playerPos, isNight);
     const now = performance.now();
+    // every player in the realm is a valid target; '' = the local player
+    const candidates: { name: string; pos: THREE.Vector3 }[] =
+      [{ name: '', pos: playerPos }, ...this.targets];
 
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const m = this.mobs[i];
@@ -149,16 +176,22 @@ export class MobManager {
       m.lungeT = Math.max(0, m.lungeT - dt * 3);
       m.flash();
 
-      const dist = m.pos.distanceTo(playerPos);
+      // chase whoever is closest
+      let tgt = candidates[0];
+      let dist = m.pos.distanceTo(tgt.pos);
+      for (let c = 1; c < candidates.length; c++) {
+        const d = m.pos.distanceTo(candidates[c].pos);
+        if (d < dist) { dist = d; tgt = candidates[c]; }
+      }
 
-      // despawn: too far, or a night-only mob lingering in daylight
+      // despawn: too far from every player, or a night-only mob lingering in daylight
       const wrongTime = (m.def.spawnTime === 'night' && !isNight) || (m.def.spawnTime === 'day' && isNight);
       if (dist > DESPAWN_DIST || (wrongTime && Math.random() < dt * 0.4)) {
         this.remove(i);
         continue;
       }
 
-      this.steer(m, dt, world, playerPos, isNight, projectiles, dist);
+      this.steer(m, dt, world, tgt, isNight, projectiles, dist);
 
       if (!m.airborne) m.vel.y -= 26 * dt;
       this.moveMob(m, dt, world);
@@ -169,7 +202,7 @@ export class MobManager {
         if (dist < reach && m.attackCd <= 0 && (m.aggro || m.provoked)) {
           m.attackCd = m.def.behavior === 'boss' ? 1.4 : 0.9;
           m.lungeT = 0.3;
-          this.onPlayerHit?.(m.def.damage);
+          this.hitTarget(tgt.name, m.def.damage);
         }
       }
 
@@ -178,8 +211,85 @@ export class MobManager {
     }
   }
 
+  // ---------- multiplayer sync ----------
+  byId(id: number): Mob | null {
+    return this.mobs.find((m) => m.id === id) ?? null;
+  }
+
+  /** Leader: compact wire state of every mob. */
+  snapshot(): import('./net').MobSnap[] {
+    return this.mobs.map((m) => ({
+      i: m.id, d: m.defIndex,
+      x: Math.round(m.pos.x * 100) / 100,
+      y: Math.round(m.pos.y * 100) / 100,
+      z: Math.round(m.pos.z * 100) / 100,
+      ry: Math.round(m.group.rotation.y * 100) / 100,
+      h: Math.round(m.health * 10) / 10,
+      a: m.aggro ? 1 : 0,
+    }));
+  }
+
+  /** Follower: mirror the leader's snapshot (create/update/remove). */
+  applySnapshot(snaps: import('./net').MobSnap[]): void {
+    const seen = new Set<number>();
+    for (const s of snaps) {
+      seen.add(s.i);
+      let m = this.byId(s.i);
+      if (!m) {
+        const def = this.world_.defs[s.d];
+        if (!def) continue;
+        m = new Mob(s.x, s.y, s.z, def);
+        m.id = s.i;
+        m.defIndex = s.d;
+        this.group.add(m.group);
+        this.mobs.push(m);
+      }
+      if (!m.netPos) m.netPos = new THREE.Vector3();
+      m.netPos.set(s.x, s.y, s.z);
+      m.netYaw = s.ry;
+      if (s.h < m.health) m.hurtT = 0.18; // flash on damage we observe
+      m.health = s.h;
+      m.aggro = s.a === 1;
+    }
+    for (let i = this.mobs.length - 1; i >= 0; i--) {
+      if (!seen.has(this.mobs[i].id)) this.remove(i);
+    }
+  }
+
+  /** Follower per-frame: interpolate toward the snapshot and animate. */
+  remoteUpdate(dt: number): void {
+    const now = performance.now();
+    for (const m of this.mobs) {
+      m.hurtT -= dt;
+      m.lungeT = Math.max(0, m.lungeT - dt * 3);
+      m.flash();
+      if (m.netPos) {
+        // velocity estimate drives the walk cycle
+        m.vel.set((m.netPos.x - m.pos.x) / 0.3, 0, (m.netPos.z - m.pos.z) / 0.3);
+        m.pos.lerp(m.netPos, Math.min(1, 10 * dt));
+        let d = m.netYaw - m.group.rotation.y;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        m.group.rotation.y += d * Math.min(1, 10 * dt);
+      }
+      m.animate(dt, now);
+    }
+  }
+
+  /** Promotion to leader (previous leader left): own the mirrored mobs. */
+  becomeLeader(): void {
+    this.remote = false;
+    let maxId = 0;
+    for (const m of this.mobs) {
+      m.netPos = null;
+      maxId = Math.max(maxId, m.id);
+    }
+    this.nextId = maxId + 1;
+  }
+
   // ---------- behavior steering ----------
-  private steer(m: Mob, dt: number, world: World, playerPos: THREE.Vector3, isNight: boolean, projectiles: ProjectileManager, dist: number): void {
+  private steer(m: Mob, dt: number, world: World, tgt: { name: string; pos: THREE.Vector3 }, isNight: boolean, projectiles: ProjectileManager, dist: number): void {
+    const playerPos = tgt.pos;
     const d = m.def;
     let detect = d.detectRange;
     if (isNight && d.behavior !== 'roam' && d.behavior !== 'flee') detect *= 1.3;
@@ -223,7 +333,7 @@ export class MobManager {
         } else this.patrolWalk(m, speed * 0.6, dt);
         break;
       case 'fly':
-        this.flyBrain(m, dt, world, playerPos, projectiles, dist, speed);
+        this.flyBrain(m, dt, world, tgt, projectiles, dist, speed);
         break;
       case 'pack':
       case 'swarm':
@@ -315,10 +425,12 @@ export class MobManager {
       m.center(_tmp);
       _shootDir.set(playerPos.x - _tmp.x, playerPos.y + 1.2 - _tmp.y, playerPos.z - _tmp.z).normalize();
       projectiles.fireHostile(_tmp, _shootDir, d.projectileSpeed ?? 20, d.damage, d.projectileColor);
+      this.onHostileShot?.(_tmp.x, _tmp.y, _tmp.z, _shootDir.x, _shootDir.y, _shootDir.z, d.projectileSpeed ?? 20, d.damage, d.projectileColor);
     }
   }
 
-  private flyBrain(m: Mob, dt: number, world: World, playerPos: THREE.Vector3, projectiles: ProjectileManager, dist: number, speed: number): void {
+  private flyBrain(m: Mob, dt: number, world: World, tgt: { name: string; pos: THREE.Vector3 }, projectiles: ProjectileManager, dist: number, speed: number): void {
+    const playerPos = tgt.pos;
     const d = m.def;
     m.swoopT -= dt;
     let tx: number, ty: number, tz: number;
@@ -348,17 +460,19 @@ export class MobManager {
       m.center(_tmp);
       _shootDir.set(playerPos.x - _tmp.x, playerPos.y + 1.2 - _tmp.y, playerPos.z - _tmp.z).normalize();
       projectiles.fireHostile(_tmp, _shootDir, d.projectileSpeed ?? 20, d.damage, d.projectileColor);
+      this.onHostileShot?.(_tmp.x, _tmp.y, _tmp.z, _shootDir.x, _shootDir.y, _shootDir.z, d.projectileSpeed ?? 20, d.damage, d.projectileColor);
     }
     // swoop touch damage
     if (m.swooping > 0 && dist < 1.6 && m.attackCd <= 0) {
       m.attackCd = 1.2;
-      this.onPlayerHit?.(d.damage);
+      this.hitTarget(tgt.name, d.damage);
       m.swooping = 0;
     }
   }
 
   // ---------- spawning ----------
   private trySpawn(dt: number, world: World, playerPos: THREE.Vector3, isNight: boolean): void {
+    if (this.remote) return; // followers never spawn — the leader does
     this.spawnCd -= dt;
     const maxMobs = isNight ? this.world_.nightMax : this.world_.dayMax;
     if (this.mobs.length >= maxMobs || this.spawnCd > 0) return;
@@ -388,6 +502,8 @@ export class MobManager {
       const y = world.surfaceY(x, z);
       if (y <= world.waterLevel + 1 || y >= 92) continue;
       const m = new Mob(x + 0.5, y, z + 0.5, def);
+      m.id = this.nextId++;
+      m.defIndex = this.world_.defs.indexOf(def);
       if (m.airborne) m.pos.y += def.model.kind === 'ghost' ? 1.5 : 6;
       this.group.add(m.group);
       this.mobs.push(m);
@@ -433,6 +549,8 @@ export class MobManager {
       const y = world.surfaceY(x, z);
       if (y <= world.waterLevel + 1 || y >= 92) continue;
       const m = new Mob(x + 0.5, y, z + 0.5, def);
+      m.id = this.nextId++;
+      m.defIndex = this.world_.defs.indexOf(def);
       if (m.airborne) m.pos.y += 5;
       m.aggro = true;
       this.group.add(m.group);
@@ -494,6 +612,12 @@ export class MobManager {
 
   // ---------- combat API (used by player attacks, skills, projectiles) ----------
   damage(mob: Mob, dmg: number, knockFrom?: THREE.Vector3): void {
+    if (this.remote) {
+      // follower: show feedback locally, let the leader apply the real damage
+      mob.hurtT = 0.18;
+      this.onForwardHit?.(mob.id, dmg, knockFrom?.x ?? 0, knockFrom?.z ?? 0);
+      return;
+    }
     mob.health -= dmg;
     mob.hurtT = 0.18;
     mob.provoked = true;

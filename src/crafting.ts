@@ -52,6 +52,23 @@ export const RECIPES: Recipe[] = [
   r('iron-legs', 'workbench', [{ item: Item.IronIngot, count: 7 }], { item: Item.IronLeggings, count: 1 }),
   r('iron-boots', 'workbench', [{ item: Item.IronIngot, count: 4 }], { item: Item.IronBoots, count: 1 }),
   r('bed', 'workbench', [{ item: Block.Planks, count: 3 }, { item: Item.LeafFiber, count: 3 }], { item: Block.Bed, count: 1 }),
+  // expanded tools / weapons
+  r('iron-axe', 'workbench', [{ item: Item.IronIngot, count: 3 }, { item: Item.Stick, count: 2 }], { item: Item.IronAxe, count: 1 }, 0, 280),
+  r('iron-shovel', 'workbench', [{ item: Item.IronIngot, count: 1 }, { item: Item.Stick, count: 2 }], { item: Item.IronShovel, count: 1 }, 0, 280),
+  r('gold-sword', 'workbench', [{ item: Item.GoldIngot, count: 2 }, { item: Item.Stick, count: 1 }], { item: Item.GoldSword, count: 1 }, 0, 120),
+  r('crystal-sword', 'workbench', [{ item: Item.CrystalShard, count: 2 }, { item: Item.Stick, count: 1 }], { item: Item.CrystalSword, count: 1 }, 0, 500),
+  r('void-blade', 'workbench', [{ item: Item.VoidShard, count: 3 }, { item: Item.Stick, count: 1 }], { item: Item.VoidBlade, count: 1 }, 0, 400),
+  // expanded armor
+  r('gold-helmet', 'workbench', [{ item: Item.GoldIngot, count: 5 }], { item: Item.GoldHelmet, count: 1 }),
+  r('gold-chest', 'workbench', [{ item: Item.GoldIngot, count: 8 }], { item: Item.GoldChestplate, count: 1 }),
+  r('gold-legs', 'workbench', [{ item: Item.GoldIngot, count: 7 }], { item: Item.GoldLeggings, count: 1 }),
+  r('gold-boots', 'workbench', [{ item: Item.GoldIngot, count: 4 }], { item: Item.GoldBoots, count: 1 }),
+  r('crystal-helmet', 'workbench', [{ item: Item.CrystalShard, count: 5 }], { item: Item.CrystalHelmet, count: 1 }),
+  r('crystal-chest', 'workbench', [{ item: Item.CrystalShard, count: 8 }], { item: Item.CrystalChestplate, count: 1 }),
+  r('crystal-legs', 'workbench', [{ item: Item.CrystalShard, count: 7 }], { item: Item.CrystalLeggings, count: 1 }),
+  r('crystal-boots', 'workbench', [{ item: Item.CrystalShard, count: 4 }], { item: Item.CrystalBoots, count: 1 }),
+  // consumables
+  r('sunfruit-tonic', 'workbench', [{ item: Item.MoonHerb, count: 2 }, { item: Item.CrystalShard, count: 1 }], { item: Item.SunfruitTonic, count: 1 }),
 
   // smelter (raw ore + fuel, timed)
   r('iron-ingot', 'smelter', [{ item: Item.RawIron, count: 1 }, { item: Item.EmberCoal, count: 1 }], { item: Item.IronIngot, count: 1 }, 2.5),
@@ -60,6 +77,7 @@ export const RECIPES: Recipe[] = [
   r('stone-cook', 'smelter', [{ item: Block.Dirt, count: 2 }, { item: Item.EmberCoal, count: 1 }], { item: Block.Stone, count: 1 }, 2),
   r('cook-meat', 'smelter', [{ item: Item.RawMeat, count: 1 }, { item: Item.EmberCoal, count: 1 }], { item: Item.CookedMeat, count: 1 }, 2),
   r('scrap-iron', 'smelter', [{ item: Item.ScrapIron, count: 2 }, { item: Item.EmberCoal, count: 1 }], { item: Item.IronIngot, count: 1 }, 2.5),
+  r('trail-stew', 'smelter', [{ item: Item.RawMeat, count: 1 }, { item: Item.LeafFiber, count: 2 }, { item: Item.EmberCoal, count: 1 }], { item: Item.TrailStew, count: 1 }, 3),
 ];
 
 export function recipesFor(station: Station): Recipe[] {
