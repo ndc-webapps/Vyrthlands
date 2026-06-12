@@ -33,6 +33,7 @@ import { saveWorld, loadSave, hasSave, clearSave, buildSaveData, normalizeSave, 
 import { GameMode } from './types';
 import { AuthStore, ApiError } from './auth';
 import { ServerApi, Presence, ServerInfo } from './net';
+import { RolePreviews } from './ui/rolePreview';
 
 // ---------- Renderer / scene ----------
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -259,6 +260,26 @@ wireOptionRow('role-row', 'role', (v) => {
   role = v as RoleId;
   roleDesc.textContent = ROLES[role].desc;
 });
+
+// live animated avatar previews inside every role button
+const rolePreviews = new RolePreviews();
+function attachRolePreviews(rowId: string): void {
+  document.getElementById(rowId)!.querySelectorAll('button').forEach((btn) => {
+    const r = btn.dataset.role as RoleId | undefined;
+    if (!r || !ROLES[r]) return;
+    btn.classList.add('opt-role');
+    const canvas = document.createElement('canvas');
+    canvas.className = 'role-preview';
+    const label = document.createElement('span');
+    label.textContent = btn.textContent ?? '';
+    btn.textContent = '';
+    btn.appendChild(canvas);
+    btn.appendChild(label);
+    rolePreviews.attach(r, canvas);
+  });
+}
+attachRolePreviews('role-row');       // create world / create server screen
+attachRolePreviews('role-pick-row');  // join-with-invite-code role picker
 
 if (hasSave()) {
   btnContinue.classList.remove('hidden');
@@ -1958,6 +1979,11 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
+
+  // animate the role-button avatar previews while their menus are open
+  if (!titleScreen.classList.contains('hidden') || !roleModal.classList.contains('hidden')) {
+    rolePreviews.update(dt);
+  }
 
   if (!running || !world || !player || !worldRenderer) {
     renderer.render(scene, camera);

@@ -1374,6 +1374,35 @@ button.loading { opacity: 0.6; pointer-events: none; }
   background: rgba(255,208,112,0.08);
 }
 .server-card .sc-copy:hover { background: rgba(255,208,112,0.2); }
+
+/* ---------- role picker modal (join with invite code) ---------- */
+#role-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(3, 5, 10, 0.82);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#role-modal .modal-panel { width: min(480px, 94vw); }
+#role-modal .opt-row { justify-content: center; }
+
+/* role buttons with live animated avatar previews */
+.opt-row button.opt-role {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 10px 9px;
+}
+.role-preview {
+  width: 58px; height: 78px;
+  pointer-events: none;
+  display: block;
+}
+@media (max-width: 640px) {
+  .role-preview { width: 44px; height: 59px; }
+}
 .sens-row { display: flex; flex-direction: column; gap: 6px; text-align: left; }
 .sens-row label { font-size: 13px; color: var(--text-dim, rgba(232,236,244,0.7)); display: flex; justify-content: space-between; }
 .sens-row b { color: #7df0ff; }
