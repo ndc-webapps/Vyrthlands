@@ -101,7 +101,7 @@ app.post('/api/register', wrap(async (req, res) => {
     [id, username, email ?? null, hash, now(), now()]);
   const token = uid();
   await db.run('INSERT INTO sessions (token, user_id, created_at) VALUES ($1,$2,$3)', [token, id, now()]);
-  res.json({ token, user: { id, username, email: email ?? null, avatar: '', createdAt: now() } });
+  res.json({ token, user: { id, username, email: email ?? null, avatar: '', createdAt: now() }, storage: db.engine });
 }));
 
 app.post('/api/login', wrap(async (req, res) => {
@@ -113,7 +113,7 @@ app.post('/api/login', wrap(async (req, res) => {
   await db.run('UPDATE users SET last_login = $1 WHERE id = $2', [now(), row.id]);
   const token = uid();
   await db.run('INSERT INTO sessions (token, user_id, created_at) VALUES ($1,$2,$3)', [token, row.id, now()]);
-  res.json({ token, user: { id: row.id, username: row.username, email: row.email, avatar: row.avatar, createdAt: Number(row.created_at) } });
+  res.json({ token, user: { id: row.id, username: row.username, email: row.email, avatar: row.avatar, createdAt: Number(row.created_at) }, storage: db.engine });
 }));
 
 app.post('/api/logout', auth, wrap(async (req, res) => {
@@ -122,7 +122,7 @@ app.post('/api/logout', auth, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get('/api/me', auth, (req, res) => res.json({ user: req.user }));
+app.get('/api/me', auth, (req, res) => res.json({ user: req.user, storage: db.engine }));
 
 // DEBUG — open https://<railway-domain>/api/_debug to check which database is in use
 app.get('/api/_debug', wrap(async (req, res) => {

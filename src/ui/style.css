@@ -830,7 +830,8 @@ html, body {
   .brand-name { display: none; }
   .nav-links { display: none; }
   .nav-actions { margin-left: auto; }
-  .nav-actions .ghost-btn:last-child { display: none; }
+  /* hide only the top-level "Create Account" button — never the chip's Logout */
+  .nav-actions > .ghost-btn:last-of-type { display: none; }
   .hero { padding: 26px 16px 44px; }
   .hero-title { font-size: clamp(48px, 16vw, 68px); }
   .hero-subtitle { font-size: 23px; }
@@ -1302,6 +1303,15 @@ html, body {
   .hotbar-slot { width: 42px; height: 42px; }
   .hotbar-slot .swatch { width: 26px; height: 26px; }
   #controls-help { display: none; }
+  /* tall menus (15 world types, realm lists) must scroll, not clip */
+  #title-screen, #server-screen {
+    display: block; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: env(safe-area-inset-top) 0 24px;
+  }
+  #title-screen .panel, #server-screen .panel { margin: 14px auto; box-sizing: border-box; }
+  #pause-menu { overflow-y: auto; }
+  .server-list { max-height: none; }
+  .opt-row button { padding: 7px 9px; font-size: 11px; }
 }
 
 /* ---------- Account / auth ---------- */
@@ -1333,6 +1343,7 @@ button.loading { opacity: 0.6; pointer-events: none; }
     radial-gradient(1200px 500px at 50% -10%, rgba(92,214,240,0.18), transparent),
     linear-gradient(180deg, #0b0e16 0%, #121a2e 60%, #1a2742 100%);
 }
+.server-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .server-toolbar { display: flex; gap: 10px; align-items: stretch; margin-bottom: 14px; }
 .server-toolbar .primary { flex: 0 0 auto; }
 .join-row { flex: 1; }
@@ -1430,12 +1441,13 @@ body.touch-mode #hotbar, body.touch-mode #skill-bar { z-index: 7; }
 body.touch-mode .skill-slot { pointer-events: auto; cursor: pointer; }
 body.touch-mode #chat-box { z-index: 7; }
 .touch-btns-right {
-  position: absolute; right: 20px; bottom: 130px; display: flex;
+  position: absolute; right: calc(20px + env(safe-area-inset-right)); bottom: 130px; display: flex;
   flex-direction: column; gap: 12px; align-items: flex-end; pointer-events: none;
 }
 .touch-btns-right .tbtn { pointer-events: auto; }
 .touch-btns-top {
-  position: absolute; top: 12px; right: 12px; display: flex; gap: 10px; pointer-events: none;
+  position: absolute; top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right)); display: flex; gap: 10px; pointer-events: none;
 }
 .touch-btns-top .tbtn { pointer-events: auto; }
 body.touch-mode #controls-help { display: none; }

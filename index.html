@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Vyrthlands - Voxel Survival RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -278,9 +278,13 @@
   <!-- Server selection (logged-in flow) -->
   <div id="server-screen" class="hidden">
     <div class="panel panel-wide">
-      <button id="btn-server-back" class="back-btn">Back</button>
+      <div class="server-head">
+        <button id="btn-server-back" class="back-btn">Back</button>
+        <button id="btn-server-logout" class="back-btn">Logout</button>
+      </div>
       <h1>Your <span>Realms</span></h1>
       <p class="tagline">Continue an adventure, host a new realm, or join a friend.</p>
+      <p id="storage-warn" class="auth-error hidden"></p>
       <div class="server-toolbar">
         <button id="btn-server-create" class="primary">Create Server</button>
         <div class="seed-row join-row">

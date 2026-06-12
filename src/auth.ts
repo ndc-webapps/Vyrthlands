@@ -44,6 +44,8 @@ async function call<T>(method: string, url: string, body?: unknown, token?: stri
 export class AuthStore {
   user: User | null = null;
   guest = false;
+  /** Backend storage engine ('postgres' | 'sqlite') — used to warn about temp storage. */
+  storage: string | null = null;
 
   get token(): string | null { return localStorage.getItem(TOKEN_KEY); }
   get loggedIn(): boolean { return this.user !== null; }
@@ -52,8 +54,9 @@ export class AuthStore {
   async restore(): Promise<User | null> {
     if (!this.token) return null;
     try {
-      const { user } = await call<{ user: User }>('GET', '/api/me', undefined, this.token);
+      const { user, storage } = await call<{ user: User; storage?: string }>('GET', '/api/me', undefined, this.token);
       this.user = user;
+      this.storage = storage ?? null;
       return user;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) localStorage.removeItem(TOKEN_KEY);
@@ -62,17 +65,19 @@ export class AuthStore {
   }
 
   async register(username: string, password: string, email?: string): Promise<User> {
-    const r = await call<{ token: string; user: User }>('POST', '/api/register', { username, password, email: email || undefined });
+    const r = await call<{ token: string; user: User; storage?: string }>('POST', '/api/register', { username, password, email: email || undefined });
     localStorage.setItem(TOKEN_KEY, r.token);
     this.user = r.user;
+    this.storage = r.storage ?? null;
     this.guest = false;
     return r.user;
   }
 
   async login(username: string, password: string): Promise<User> {
-    const r = await call<{ token: string; user: User }>('POST', '/api/login', { username, password });
+    const r = await call<{ token: string; user: User; storage?: string }>('POST', '/api/login', { username, password });
     localStorage.setItem(TOKEN_KEY, r.token);
     this.user = r.user;
+    this.storage = r.storage ?? null;
     this.guest = false;
     return r.user;
   }
