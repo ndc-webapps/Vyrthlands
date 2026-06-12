@@ -49,6 +49,7 @@ export const enum Tile {
   CanopyBlue,
   CanopyYellow,
   TicketPost,
+  Rail,
 }
 
 // deterministic per-pixel hash → 0..1
@@ -343,6 +344,20 @@ const PAINTERS: Record<number, Painter> = {
   [Tile.CanopyRed]: (set) => canopy(set, [225, 60, 70], 140),
   [Tile.CanopyBlue]: (set) => canopy(set, [60, 120, 230], 141),
   [Tile.CanopyYellow]: (set) => canopy(set, [240, 190, 50], 142),
+  [Tile.Rail]: (set) => {
+    // wooden ties + two iron rails on a transparent background (cutout)
+    for (let y = 1; y < TILE; y += 4) {
+      for (let x = 1; x < 15; x++) {
+        const f = 0.9 + pnoise(x, y, 144) * 0.16;
+        set(x, y, 122 * f, 88 * f, 52 * f);
+        set(x, y + 1, 100 * f, 72 * f, 42 * f);
+      }
+    }
+    for (let y = 0; y < TILE; y++) {
+      const f = 0.92 + pnoise(2, y, 145) * 0.12;
+      for (const x of [3, 4, 11, 12]) set(x, y, 188 * f, 196 * f, 206 * f);
+    }
+  },
   [Tile.TicketPost]: (set) => {
     for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
       const f = 0.92 + pnoise(x, y, 143) * 0.14;

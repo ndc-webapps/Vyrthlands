@@ -13,6 +13,7 @@ import { World } from './world/world';
 import { WorldRenderer } from './world/worldRenderer';
 import { GENERATORS, WorldType } from './world/generators';
 import { themeParkRides, ParkRide } from './world/generators/themeParkGenerator';
+import { ParkAnimator } from './parkRides';
 import { Player } from './player';
 import { raycastVoxel } from './raycast';
 import { Environment } from './environment';
@@ -56,6 +57,14 @@ const mobs = new MobManager(scene);
 const projectiles = new ProjectileManager(scene);
 const playerModel = new PlayerModel(scene);
 const remotes = new RemotePlayers(scene);
+const parkAnim = new ParkAnimator(scene); // moving theme-park ride parts
+// minecart shown under the player while riding player-built rails
+const cartMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(1.0, 0.5, 1.3),
+  new THREE.MeshLambertMaterial({ color: 0x6a4e30 })
+);
+cartMesh.visible = false;
+scene.add(cartMesh);
 let thirdPerson = false;
 viewModel.setVisible(false);
 
@@ -113,7 +122,7 @@ let mobSyncT = 0;
 let clockT = 0;
 // theme park rides: seats placed by the generator, paths ridden here
 let parkRides: ParkRide[] = [];
-let activeRide: { ride: ParkRide; curve: THREE.CatmullRomCurve3; t: number } | null = null;
+let activeRide: { ride: ParkRide; curve: THREE.CatmullRomCurve3; t: number; cart?: boolean } | null = null;
 // tamed companion: follows you, mountable for fast travel
 interface MountState {
   def: EnemyDef;
@@ -896,9 +905,11 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   mobs.setWorld(worldType);
   disposeMount();
   activeRide = null;
+  cartMesh.visible = false;
   parkRides = worldType === 'themepark'
     ? themeParkRides({ seed, sizeBlocks: WORLD_SIZES[worldSize] * 16 })
     : [];
+  parkAnim.build(parkRides); // spinning wheels/carousels/swings/ship/cups
   if (save) world.applyEdits(save.edits);
   else if (cloudEdits) world.applyEdits(cloudEdits); // joining a friend's already-built world
 
@@ -1162,6 +1173,8 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
     openUI('crafting', 'smelter');
   } else if (blockId === Block.RideSeat) {
     startRideAt(pos.x, pos.y, pos.z);
+  } else if (blockId === Block.Rail) {
+    startRailRide(pos.x, pos.y, pos.z);
   } else if (blockId === Block.Bed) {
     spawnPoint = { x: pos.x, z: pos.z };
     if (environment.isNight()) {
@@ -1179,7 +1192,21 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
   }
 }
 
-// ---------- theme park rides ----------
+// ---------- theme park rides + player-built rail carts ----------
+const _ridePos = new THREE.Vector3();
+const _rideTan = new THREE.Vector3();
+
+function beginPathRide(ride: ParkRide, cart: boolean): void {
+  if (activeRide || !player) return;
+  const pts = ride.path.map(([px, py, pz]) => new THREE.Vector3(px, py, pz));
+  activeRide = { ride, curve: new THREE.CatmullRomCurve3(pts, !!ride.closed, 'centripetal'), t: 0, cart };
+  player.velocity.set(0, 0, 0);
+  player.keys.clear();
+  mouseButtons.clear();
+  cartMesh.visible = cart;
+  hud.toast(`Riding ${ride.name}! (jump to hop off)`);
+}
+
 function startRideAt(x: number, y: number, z: number): void {
   if (activeRide || !player) return;
   let best: ParkRide | null = null;
@@ -1188,33 +1215,102 @@ function startRideAt(x: number, y: number, z: number): void {
     const d = Math.hypot(r.seat[0] - x, r.seat[1] - y, r.seat[2] - z);
     if (d < bestD) { best = r; bestD = d; }
   }
-  if (!best) return;
-  const pts = best.path.map(([px, py, pz]) => new THREE.Vector3(px, py, pz));
-  activeRide = { ride: best, curve: new THREE.CatmullRomCurve3(pts, !!best.closed, 'centripetal'), t: 0 };
-  player.velocity.set(0, 0, 0);
-  player.keys.clear();
-  mouseButtons.clear();
-  hud.toast(`Riding ${best.name}! (jump to hop off)`);
+  if (best) beginPathRide(best, false);
 }
 
 function endRide(finished: boolean): void {
   if (!activeRide || !player) return;
-  const seat = activeRide.ride.seat;
-  if (finished) player.position.set(seat[0] + 0.5, seat[1], seat[2] + 0.5);
+  const r = activeRide.ride;
+  // park rides return you to the boarding post; rail carts stop where they are
+  if (finished && (r.returnToSeat ?? true)) player.position.set(r.seat[0] + 0.5, r.seat[1], r.seat[2] + 0.5);
   player.velocity.set(0, 0, 0);
-  hud.toast(finished ? `${activeRide.ride.name} complete!` : 'Hopped off the ride');
+  cartMesh.visible = false;
+  hud.toast(finished ? `${r.name} complete!` : 'Hopped off the ride');
   activeRide = null;
 }
 
-/** Carry the player along the ride curve; look stays free. */
+/** Carry the player along the ride; look stays free. Rides with a motion
+ *  rig pin the player to the real moving car instead of the path curve. */
 function updateRide(dt: number): void {
   if (!activeRide || !player) return;
   activeRide.t += dt / activeRide.ride.duration;
   if (activeRide.t >= 1) { endRide(true); return; }
   if (player.keys.has('Space') && activeRide.t > 0.04) { endRide(false); return; }
-  const p = activeRide.curve.getPoint(activeRide.t);
-  player.position.set(p.x, p.y, p.z);
+  const m = activeRide.ride.motion;
+  if (m) {
+    parkAnim.riderPoint(m, _ridePos);
+    player.position.set(_ridePos.x, _ridePos.y + 0.45, _ridePos.z);
+  } else {
+    activeRide.curve.getPoint(activeRide.t, _ridePos);
+    player.position.copy(_ridePos);
+    if (activeRide.cart) {
+      cartMesh.position.set(_ridePos.x, _ridePos.y + 0.25, _ridePos.z);
+      activeRide.curve.getTangent(activeRide.t, _rideTan);
+      cartMesh.rotation.y = Math.atan2(_rideTan.x, _rideTan.z);
+    }
+  }
   player.velocity.set(0, 0, 0);
+}
+
+/** Follow connected Cart Rail blocks from a starting rail. Allows 1-block
+ *  slopes, prefers going straight, stops at dead ends or after 600 pieces. */
+function traceRail(sx: number, sy: number, sz: number): { pts: THREE.Vector3[]; closed: boolean } | null {
+  if (!world) return null;
+  const isRail = (x: number, y: number, z: number) => world!.getBlock(x, y, z) === Block.Rail;
+  const keyOf = (x: number, y: number, z: number) => `${x},${y},${z}`;
+  const dirs: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const step = (x: number, y: number, z: number, dx: number, dz: number) => {
+    for (const dy of [0, 1, -1]) {
+      if (isRail(x + dx, y + dy, z + dz)) return { x: x + dx, y: y + dy, z: z + dz };
+    }
+    return null;
+  };
+  let dir: [number, number] | null = null;
+  for (const [dx, dz] of dirs) if (step(sx, sy, sz, dx, dz)) { dir = [dx, dz]; break; }
+  if (!dir) return null;
+  const pts = [new THREE.Vector3(sx + 0.5, sy, sz + 0.5)];
+  const seen = new Set([keyOf(sx, sy, sz)]);
+  let cur = { x: sx, y: sy, z: sz };
+  for (let i = 0; i < 600; i++) {
+    const options: ReadonlyArray<readonly [number, number]> =
+      [dir, ...dirs.filter(([dx, dz]) => !(dx === dir![0] && dz === dir![1]) && !(dx === -dir![0] && dz === -dir![1]))];
+    let moved = false;
+    for (const [dx, dz] of options) {
+      const n = step(cur.x, cur.y, cur.z, dx, dz);
+      if (!n) continue;
+      if (n.x === sx && n.y === sy && n.z === sz && pts.length > 3) {
+        return { pts, closed: true }; // came back around — full circuit
+      }
+      if (seen.has(keyOf(n.x, n.y, n.z))) continue;
+      seen.add(keyOf(n.x, n.y, n.z));
+      pts.push(new THREE.Vector3(n.x + 0.5, n.y, n.z + 0.5));
+      dir = [dx, dz];
+      cur = n;
+      moved = true;
+      break;
+    }
+    if (!moved) break;
+  }
+  return pts.length >= 2 ? { pts, closed: false } : null;
+}
+
+function startRailRide(x: number, y: number, z: number): void {
+  if (activeRide || !player) return;
+  const traced = traceRail(x, y, z);
+  if (!traced) {
+    hud.toast('Connect more Cart Rail pieces to make a track');
+    return;
+  }
+  let length = 0;
+  for (let i = 1; i < traced.pts.length; i++) length += traced.pts[i].distanceTo(traced.pts[i - 1]);
+  beginPathRide({
+    name: 'Rail Cart',
+    seat: [x, y, z],
+    path: traced.pts.map((p) => [p.x, p.y + 0.1, p.z] as [number, number, number]),
+    duration: Math.max(2, length / 8), // ~8 blocks per second
+    closed: traced.closed,
+    returnToSeat: false,
+  }, true);
 }
 
 // ---------- tamed mounts (feed a wild animal, rare chance to tame, then ride) ----------
@@ -1844,6 +1940,7 @@ function frame(now: number): void {
   }
 
   if (!paused) {
+    parkAnim.update(dt); // attractions keep moving even when nobody rides
     if (activeRide) updateRide(dt);
     else if (!uiOpen) player.update(dt);
     updateMount(dt);

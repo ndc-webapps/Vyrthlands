@@ -20,6 +20,16 @@ const Y = G + 1;                // first air block above ground
 type Vec3 = [number, number, number];
 type SetFn = (wx: number, y: number, wz: number, id: number) => void;
 
+/** A continuously-animated rig: visible cars orbit it, and the rider
+ *  attaches to car #0 — see src/parkRides.ts. */
+export interface RideMotion {
+  kind: 'wheel' | 'carousel' | 'swing' | 'ship' | 'cup';
+  cx: number; cy: number; cz: number;
+  r: number;
+  period: number; // seconds per revolution / full swing
+  count: number;  // number of visible cars/seats
+}
+
 export interface ParkRide {
   name: string;
   /** World position of the Ride Seat block. */
@@ -28,6 +38,10 @@ export interface ParkRide {
   path: Vec3[];
   duration: number;   // seconds for the full path
   closed?: boolean;   // loop (coasters, carousels) vs out-and-back handled by path
+  /** Set => the ride has real moving cars and the rider sits on car #0. */
+  motion?: RideMotion;
+  /** Park rides return you to the seat post when finished (rail carts don't). */
+  returnToSeat?: boolean;
 }
 
 interface Attraction {
@@ -103,7 +117,10 @@ const ATTRACTIONS: Attraction[] = [
       }
       seatPost(set, cx + 7, cz);
     },
-    ride: (cx, cz) => ({ seat: [cx + 7, Y, cz], path: circlePath(cx, Y + 1, cz, 5, 16), duration: 14, closed: true }),
+    ride: (cx, cz) => ({
+      seat: [cx + 7, Y, cz], path: circlePath(cx, Y + 1, cz, 5, 16), duration: 14, closed: true,
+      motion: { kind: 'carousel', cx, cy: Y + 1.2, cz, r: 5, period: 14, count: 6 },
+    }),
   },
   {
     name: 'Sky Wheel', dx: 34, dz: -34, r: 12,
@@ -130,7 +147,10 @@ const ATTRACTIONS: Attraction[] = [
         const t = (i / 20) * Math.PI * 2;
         pts.push([cx + Math.cos(t) * 9, Y + 11 + Math.sin(t) * 9, cz + 1]);
       }
-      return { seat: [cx, Y, cz + 3], path: pts, duration: 26, closed: true };
+      return {
+        seat: [cx, Y, cz + 3], path: pts, duration: 26, closed: true,
+        motion: { kind: 'wheel', cx, cy: Y + 11, cz: cz + 1, r: 9, period: 26, count: 8 },
+      };
     },
   },
   {
@@ -187,19 +207,21 @@ const ATTRACTIONS: Attraction[] = [
       set(cx, Y + 10, cz, Block.Lantern);
       seatPost(set, cx + 6, cz);
     },
-    ride: (cx, cz) => ({ seat: [cx + 6, Y, cz], path: circlePath(cx, Y + 6, cz, 7, 16, (t) => Math.sin(t * Math.PI * 6) * 0.8), duration: 15, closed: true }),
+    ride: (cx, cz) => ({
+      seat: [cx + 6, Y, cz], path: circlePath(cx, Y + 6, cz, 7, 16, (t) => Math.sin(t * Math.PI * 6) * 0.8), duration: 15, closed: true,
+      motion: { kind: 'swing', cx, cy: Y + 6, cz, r: 7, period: 15, count: 6 },
+    }),
   },
   {
     name: 'Tempest Ship', dx: 26, dz: 44, r: 11,
     build(set, cx, cz) {
-      // swinging ship: hull + A-frame
-      box(set, cx - 6, Y + 4, cz - 1, cx + 6, Y + 4, cz + 1, Block.Wood);
-      box(set, cx - 5, Y + 5, cz - 1, cx + 5, Y + 5, cz + 1, Block.Planks);
+      // A-frame only — the swinging hull is a real animated mesh
       pillar(set, cx - 7, cz - 2, Y, 8, Block.Foundation);
       pillar(set, cx + 7, cz - 2, Y, 8, Block.Foundation);
       pillar(set, cx - 7, cz + 2, Y, 8, Block.Foundation);
       pillar(set, cx + 7, cz + 2, Y, 8, Block.Foundation);
       box(set, cx - 7, Y + 8, cz - 2, cx + 7, Y + 8, cz + 2, Block.Wood);
+      box(set, cx - 7, G, cz - 3, cx + 7, G, cz + 3, Block.Concrete);
       seatPost(set, cx, cz + 3);
     },
     ride: (cx, cz) => {
@@ -209,7 +231,10 @@ const ATTRACTIONS: Attraction[] = [
         const sw = Math.sin((i / 16) * Math.PI * 4) * 1.1;
         pts.push([cx + Math.sin(sw) * 8, Y + 8 - Math.cos(sw) * 6, cz]);
       }
-      return { seat: [cx, Y, cz + 3], path: pts, duration: 14 };
+      return {
+        seat: [cx, Y, cz + 3], path: pts, duration: 14,
+        motion: { kind: 'ship', cx, cy: Y + 8, cz, r: 8, period: 7, count: 1 },
+      };
     },
   },
   {
@@ -481,7 +506,10 @@ const ATTRACTIONS: Attraction[] = [
         const wob = Math.cos(t * 5) * 1.2;
         pts.push([cx + Math.cos(t) * (3 + wob), Y, cz + Math.sin(t) * (3 + wob)]);
       }
-      return { seat: [cx + 5, Y, cz], path: pts, duration: 12, closed: true };
+      return {
+        seat: [cx + 5, Y, cz], path: pts, duration: 12, closed: true,
+        motion: { kind: 'cup', cx, cy: Y + 0.6, cz, r: 3, period: 12, count: 3 },
+      };
     },
   },
   // ---------- walk-in decor (no ride seat) ----------

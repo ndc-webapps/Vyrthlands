@@ -8,7 +8,7 @@ export interface Slot {
 }
 
 export const HOTBAR_SIZE = 10;
-export const PACK_SIZE = 42; // fits the creative palette + every armor set
+export const PACK_SIZE = 54; // fits the creative palette + every armor set
 export const EQUIP_KEYS = ['head', 'body', 'legs', 'boots', 'weapon', 'offhand', 'accessory'] as const;
 export type EquipKey = typeof EQUIP_KEYS[number];
 
