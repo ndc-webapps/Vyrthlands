@@ -275,6 +275,24 @@
     </div>
   </div>
 
+  <!-- Role picker shown before joining a friend's realm -->
+  <div id="role-modal" class="hidden">
+    <div class="modal-panel">
+      <span class="modal-eyebrow">Choose Your Role</span>
+      <p class="tagline">Pick how you want to fight in this realm.</p>
+      <div class="opt-row" id="role-pick-row">
+        <button data-role="swordsman" class="opt active">Swordsman</button>
+        <button data-role="assassin" class="opt">Assassin</button>
+        <button data-role="wizard" class="opt">Wizard</button>
+        <button data-role="healer" class="opt">Healer</button>
+        <button data-role="gunner" class="opt">Gunner</button>
+      </div>
+      <p class="opt-desc" id="role-pick-desc">Tough front-liner. Extra health, starts armed.</p>
+      <button id="role-pick-join" class="primary">Join Realm</button>
+      <button id="role-pick-cancel" class="link-btn">Cancel</button>
+    </div>
+  </div>
+
   <!-- Server selection (logged-in flow) -->
   <div id="server-screen" class="hidden">
     <div class="panel panel-wide">
