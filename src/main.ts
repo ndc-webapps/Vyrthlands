@@ -1215,7 +1215,7 @@ function startRideAt(x: number, y: number, z: number): void {
     const d = Math.hypot(r.seat[0] - x, r.seat[1] - y, r.seat[2] - z);
     if (d < bestD) { best = r; bestD = d; }
   }
-  if (best) beginPathRide(best, false);
+  if (best) beginPathRide(best, !!best.cart);
 }
 
 function endRide(finished: boolean): void {
