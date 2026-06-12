@@ -14,6 +14,8 @@ export class Player {
   flying = false;
   onGround = false;
   speedMult = 1; // role/equipment movement modifier
+  /** User look-sensitivity multiplier (settings slider, 0.2–2). */
+  lookSens = 1;
   /** Analog move input from the touch joystick: forward + strafe in [-1, 1]. */
   touchMove = { f: 0, s: 0 };
   private fallPeakY = 0;     // highest Y while airborne
@@ -34,8 +36,8 @@ export class Player {
   }
 
   handleMouseMove(dx: number, dy: number): void {
-    this.yaw -= dx * MOUSE_SENSITIVITY;
-    this.pitch -= dy * MOUSE_SENSITIVITY;
+    this.yaw -= dx * MOUSE_SENSITIVITY * this.lookSens;
+    this.pitch -= dy * MOUSE_SENSITIVITY * this.lookSens;
     const limit = Math.PI / 2 - 0.01;
     this.pitch = Math.max(-limit, Math.min(limit, this.pitch));
   }

@@ -729,6 +729,34 @@ btnResume.addEventListener('click', () => {
     pauseMenu.classList.add('hidden');
   } else requestPointerLock();
 });
+// ---------- settings: camera sensitivity + fullscreen ----------
+const SENS_KEY = 'vyrthlands_look_sens';
+const sensSlider = document.getElementById('sens-slider') as HTMLInputElement;
+const sensValue = document.getElementById('sens-value')!;
+let lookSens = Number(localStorage.getItem(SENS_KEY)) || 1;
+lookSens = Math.min(2, Math.max(0.2, lookSens));
+sensSlider.value = String(Math.round(lookSens * 100));
+sensValue.textContent = `${Math.round(lookSens * 100)}%`;
+
+sensSlider.addEventListener('input', () => {
+  lookSens = Number(sensSlider.value) / 100;
+  sensValue.textContent = `${sensSlider.value}%`;
+  localStorage.setItem(SENS_KEY, String(lookSens));
+  if (player) player.lookSens = lookSens;
+});
+
+function enterFullscreen(): void {
+  if (document.fullscreenElement) return;
+  document.documentElement.requestFullscreen?.().catch(() => { /* iPhone Safari: unsupported */ });
+}
+function exitFullscreen(): void {
+  if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+}
+document.getElementById('btn-fullscreen')!.addEventListener('click', () => {
+  if (document.fullscreenElement) exitFullscreen();
+  else enterFullscreen();
+});
+
 btnSave.addEventListener('click', doSave);
 btnLoad.addEventListener('click', () => {
   if (hasSave()) {
@@ -750,6 +778,7 @@ btnQuit.addEventListener('click', () => {
   isLeader = false;
   mobs.remote = false;
   running = false;
+  exitFullscreen();
   paused = false;
   uiOpen = false;
   if (backToServers) {
@@ -836,6 +865,7 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
 
   player = new Player(world);
   player.speedMult = stats.speedMult;
+  player.lookSens = lookSens;
   if (save) {
     player.position.set(save.player.x, save.player.y, save.player.z);
     player.yaw = save.player.yaw;
@@ -879,6 +909,7 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   uiOpen = false;
   dead = false;
   deathScreen.classList.add('hidden');
+  enterFullscreen(); // immersive view while in a world (popped on quit)
   requestPointerLock();
   if (isTouch) hud.toast('Tap = place/use · hold = break · double-tap Jump = fly');
 }
@@ -1444,7 +1475,7 @@ function setupTouchControls(): void {
     for (const t of Array.from(e.changedTouches)) {
       if (t.identifier !== lookId) continue;
       if (player && running && !paused && !uiOpen) {
-        player.handleMouseMove((t.clientX - lx) * 2.4, (t.clientY - ly) * 2.4);
+        player.handleMouseMove((t.clientX - lx) * 1.8, (t.clientY - ly) * 1.8);
       }
       lx = t.clientX; ly = t.clientY;
       if (!lookDragged && Math.hypot(t.clientX - downX, t.clientY - downY) > TAP_SLOP) {
