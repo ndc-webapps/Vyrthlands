@@ -1349,6 +1349,25 @@ button.loading { opacity: 0.6; pointer-events: none; }
 .server-card .sc-meta { font-size: 12px; color: rgba(232,236,244,0.6); }
 .server-card .sc-code {
   font-size: 12px; color: #ffd070; letter-spacing: 2px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.server-card .sc-copy {
+  font-size: 11px; font-weight: 800; letter-spacing: 1px;
+  padding: 3px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(255,208,112,0.45); color: #ffd070;
+  background: rgba(255,208,112,0.08);
+}
+.server-card .sc-copy:hover { background: rgba(255,208,112,0.2); }
+#pause-invite {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 13px; color: #ffd070; letter-spacing: 1px;
+}
+#pause-invite.hidden { display: none; }
+#pause-invite b { letter-spacing: 3px; }
+#pause-menu .panel button#btn-copy-invite {
+  width: auto; min-height: 0; padding: 4px 14px; font-size: 12px;
+  border: 1px solid rgba(255,208,112,0.45); color: #ffd070;
+  background: rgba(255,208,112,0.08); border-radius: 8px; cursor: pointer;
 }
 .server-card .sc-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
 .server-card .sc-online {
@@ -1374,14 +1393,15 @@ button.loading { opacity: 0.6; pointer-events: none; }
 /* beat the generic full-width modal button rule */
 .modal-panel button.pw-eye { width: 34px; min-height: 34px; }
 
-/* ---------- touch controls ---------- */
+/* ---------- touch controls (Minecraft-style gestures) ---------- */
 #touch-controls { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
 #joystick-zone {
   position: absolute; left: 0; bottom: 0; width: 45%; height: 55%;
   pointer-events: auto; touch-action: none;
 }
+/* whole screen looks/taps/holds; joystick + buttons sit on top of it */
 #look-zone {
-  position: absolute; right: 0; bottom: 0; width: 55%; height: 70%;
+  position: absolute; inset: 0;
   pointer-events: auto; touch-action: none;
 }
 #joystick-base {
@@ -1401,8 +1421,14 @@ button.loading { opacity: 0.6; pointer-events: none; }
   min-width: 64px; min-height: 64px; backdrop-filter: blur(4px);
 }
 .tbtn:active { background: rgba(125,240,255,0.3); border-color: rgba(125,240,255,0.7); }
-.tbtn-wide { min-width: 84px; }
+.tbtn-round { min-width: 72px; min-height: 72px; border-radius: 50%; font-size: 22px; }
 .tbtn-small { min-width: 52px; min-height: 44px; font-size: 12px; }
+#tbtn-down { display: none; }
+#touch-controls.flying #tbtn-down { display: block; }
+/* hotbar + skills must stay tappable above the full-screen look zone */
+body.touch-mode #hotbar, body.touch-mode #skill-bar { z-index: 7; }
+body.touch-mode .skill-slot { pointer-events: auto; cursor: pointer; }
+body.touch-mode #chat-box { z-index: 7; }
 .touch-btns-right {
   position: absolute; right: 20px; bottom: 130px; display: flex;
   flex-direction: column; gap: 12px; align-items: flex-end; pointer-events: none;

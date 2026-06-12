@@ -411,6 +411,10 @@
     <div class="panel">
       <h2>Paused</h2>
       <p class="hint" id="pause-seed"></p>
+      <div id="pause-invite" class="hidden">
+        <span>Invite: <b id="pause-invite-code"></b></span>
+        <button id="btn-copy-invite">Copy</button>
+      </div>
       <button id="btn-resume" class="primary">Resume</button>
       <button id="btn-save">Save World</button>
       <button id="btn-load">Load World</button>
@@ -435,12 +439,11 @@
 
   <!-- Touch controls (phones / tablets / iPad) -->
   <div id="touch-controls" class="hidden">
-    <div id="joystick-zone"><div id="joystick-base"><div id="joystick-knob"></div></div></div>
     <div id="look-zone"></div>
+    <div id="joystick-zone"><div id="joystick-base"><div id="joystick-knob"></div></div></div>
     <div class="touch-btns-right">
-      <button id="tbtn-jump" class="tbtn">Jump</button>
-      <button id="tbtn-break" class="tbtn tbtn-wide">Break</button>
-      <button id="tbtn-place" class="tbtn tbtn-wide">Place</button>
+      <button id="tbtn-jump" class="tbtn tbtn-round">▲</button>
+      <button id="tbtn-down" class="tbtn tbtn-round">▼</button>
     </div>
     <div class="touch-btns-top">
       <button id="tbtn-pause" class="tbtn tbtn-small">| |</button>

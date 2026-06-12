@@ -12,7 +12,7 @@ import { WebSocketServer } from 'ws';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { openDb } from './db.js';
+import { openDb, findDatabaseUrl, dbEnvKeys } from './db.js';
 
 const PORT = Number(process.env.PORT || 8081);
 const db = await openDb();
@@ -73,7 +73,7 @@ async function serverInfo(row, userId) {
   return {
     id: row.id, name: row.name, ownerId: row.owner_id, isOwner: row.owner_id === userId,
     worldType: row.world_type, mode: row.mode, worldSize: row.world_size, seed: Number(row.seed),
-    maxPlayers: row.max_players, inviteCode: row.owner_id === userId ? row.invite_code : undefined,
+    maxPlayers: row.max_players, inviteCode: row.invite_code, // members can share the code too
     createdAt: Number(row.created_at), lastPlayed: Number(row.last_played),
     members, online: roomUsers(row.id).length,
   };
@@ -124,18 +124,18 @@ app.post('/api/logout', auth, wrap(async (req, res) => {
 
 app.get('/api/me', auth, (req, res) => res.json({ user: req.user }));
 
-// TEMP DEBUG — remove after diagnosing deploy DB connection
+// DEBUG — open https://<railway-domain>/api/_debug to check which database is in use
 app.get('/api/_debug', wrap(async (req, res) => {
-  const url = process.env.DATABASE_URL || '';
-  const host = url.replace(/^.*@/, '').replace(/\?.*$/, '');
+  const found = findDatabaseUrl();
   const c = await db.get('SELECT count(*) AS n FROM users');
   res.json({
-    engine: db.engine,
-    hasDatabaseUrl: !!url,
-    urlLength: url.length,
-    dbHost: host || null,
+    engine: db.engine,               // must say "postgres" in production
+    connectedVia: db.via,            // env var name the URL came from
+    dbHost: db.host,                 // must match your Neon host (ep-xxxx...)
+    dbName: db.database,             // must match the Neon database you inspect
+    urlFoundInEnv: found ? found.name : null,
     userCount: c ? Number(c.n) : null,
-    envKeys: Object.keys(process.env).filter((k) => /DATABASE|PG|NEON/i.test(k)),
+    envKeys: dbEnvKeys(),
   });
 }));
 
