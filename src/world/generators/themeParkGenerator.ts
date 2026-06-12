@@ -42,6 +42,8 @@ export interface ParkRide {
   motion?: RideMotion;
   /** Park rides return you to the seat post when finished (rail carts don't). */
   returnToSeat?: boolean;
+  /** Ride inside a visible minecart (coasters, flume). */
+  cart?: boolean;
 }
 
 interface Attraction {
@@ -154,21 +156,37 @@ const ATTRACTIONS: Attraction[] = [
     },
   },
   {
-    name: 'Comet Coaster', dx: -45, dz: -45, r: 26,
+    name: 'Vyrth Thunder Coaster', dx: -44, dz: -36, r: 46,
     build(set, cx, cz) {
-      // supports + glowing rail along the ride path
-      const pts = cometTrack(cx, cz);
+      const pts = thunderTrack(cx, cz);
+      let prevX = -9999, prevY = 0, prevZ = -9999;
       for (let i = 0; i < pts.length; i++) {
-        const [x, y, z] = pts[i];
-        set(Math.round(x), Math.round(y) - 1, Math.round(z), Block.Road);
-        if (i % 4 === 0) pillar(set, Math.round(x), Math.round(z), Y, Math.round(y) - Y - 1, Block.Wood);
-        if (i % 3 === 0) set(Math.round(x), Math.round(y) - 2, Math.round(z), Block.Crystal);
+        const x = Math.round(pts[i][0]), y = Math.round(pts[i][1]), z = Math.round(pts[i][2]);
+        if (x === prevX && y === prevY && z === prevZ) continue;
+        prevX = x; prevY = y; prevZ = z;
+        set(x, y - 1, z, Block.Road);                               // the track bed
+        if (i % 3 === 0) set(x, y - 2, z, Block.Crystal);           // glow accents
+        if (i % 6 === 0 && y - Y > 2 && y - Y <= 18) {
+          pillar(set, x, z, Y, y - Y - 2, Block.Wood);              // support legs
+        }
       }
-      box(set, cx - 3, G, cz - 2, cx + 3, G, cz + 2, Block.Concrete);
-      box(set, cx - 3, Y + 3, cz - 2, cx + 3, Y + 3, cz + 2, Block.CanopyYellow);
-      seatPost(set, cx, cz);
+      // station: platform, canopy, glass rails, lanterns, glowing START post
+      const sx = cx - 30, sz = cz + 24;
+      box(set, sx - 4, G, sz - 3, sx + 5, G, sz + 3, Block.Concrete);
+      frame(set, sx - 4, Y, sz - 3, sx + 5, Y, sz + 3, Block.Glass);
+      set(sx, Y, sz - 3, Block.Air); set(sx + 1, Y, sz - 3, Block.Air); // entrance gap
+      for (const [ox, oz] of [[-4, -3], [5, -3], [-4, 3], [5, 3]] as const) {
+        pillar(set, sx + ox, sz + oz, Y, 4, Block.Wood);
+        set(sx + ox, Y + 4, sz + oz, Block.Lantern);
+      }
+      box(set, sx - 4, Y + 5, sz - 3, sx + 5, Y + 5, sz + 3, Block.CanopyRed);
+      set(sx + 1, Y, sz, Block.RideSeat); // the START button
     },
-    ride: (cx, cz) => ({ seat: [cx, Y, cz], path: cometTrack(cx, cz), duration: 24, closed: true }),
+    ride: (cx, cz) => ({
+      seat: [cx - 30 + 1, Y, cz + 24],
+      path: thunderTrack(cx, cz),
+      duration: 46, closed: true, cart: true,
+    }),
   },
   {
     name: 'Mini Coaster', dx: -20, dz: 38, r: 12,
@@ -181,7 +199,7 @@ const ATTRACTIONS: Attraction[] = [
       }
       seatPost(set, cx, cz);
     },
-    ride: (cx, cz) => ({ seat: [cx, Y, cz], path: circlePath(cx, Y + 3, cz, 9, 20, (t) => Math.sin(t * Math.PI * 4) * 2 + 2), duration: 16, closed: true }),
+    ride: (cx, cz) => ({ seat: [cx, Y, cz], path: circlePath(cx, Y + 3, cz, 9, 20, (t) => Math.sin(t * Math.PI * 4) * 2 + 2), duration: 16, closed: true, cart: true }),
   },
   {
     name: 'Star Drop Tower', dx: 52, dz: 0, r: 5,
@@ -309,7 +327,7 @@ const ATTRACTIONS: Attraction[] = [
         [cx + 9, Y + 5, cz], [cx + 9, Y, cz + 5], [cx, Y, cz + 5],
         [cx - 9, Y, cz + 5], [cx - 9, Y, cz - 5],
       ],
-      duration: 18, closed: true,
+      duration: 18, closed: true, cart: true,
     }),
   },
   {
@@ -451,7 +469,7 @@ const ATTRACTIONS: Attraction[] = [
     }),
   },
   {
-    name: 'Balloon Ascent', dx: -14, dz: -62, r: 6,
+    name: 'Balloon Ascent', dx: 38, dz: -58, r: 6,
     build(set, cx, cz) {
       box(set, cx - 2, G, cz - 2, cx + 2, G, cz + 2, Block.Concrete);
       // tethered balloon overhead
@@ -488,7 +506,7 @@ const ATTRACTIONS: Attraction[] = [
     }),
   },
   {
-    name: 'Teacup Twirl', dx: -40, dz: -16, r: 6,
+    name: 'Teacup Twirl', dx: -2, dz: -14, r: 6,
     build(set, cx, cz) {
       disc(set, cx, G, cz, 5, Block.Concrete);
       for (let a = 0; a < 3; a++) {
@@ -540,7 +558,7 @@ const ATTRACTIONS: Attraction[] = [
     },
   },
   {
-    name: 'Food Court', dx: -24, dz: -4, r: 8,
+    name: 'Food Court', dx: -24, dz: 6, r: 8,
     build(set, cx, cz) {
       for (let i = 0; i < 2; i++) {
         const z = cz + (i === 0 ? -3 : 3);
@@ -553,15 +571,74 @@ const ATTRACTIONS: Attraction[] = [
   },
 ];
 
-// long coaster track with three hills
-function cometTrack(cx: number, cz: number): Vec3[] {
+/**
+ * Vyrth Thunder: a long full-circuit coaster built with a track "turtle".
+ * Speed comes free from waypoint spacing — the rider moves at constant
+ * curve-parameter rate, so densely packed points (the lift hill) feel
+ * slow and widely spaced points (the big drop) feel fast.
+ */
+function thunderTrack(cx: number, cz: number): Vec3[] {
   const pts: Vec3[] = [];
-  for (let i = 0; i < 28; i++) {
-    const t = (i / 28) * Math.PI * 2;
-    const r = 18 + Math.cos(t * 2) * 4;
-    const h = 3 + Math.max(0, Math.sin(t * 3)) * 8;
-    pts.push([cx + Math.cos(t) * r, Y + h, cz + Math.sin(t) * r]);
-  }
+  let x = cx - 30, y = Y + 1, z = cz + 24; // station start
+  let a = 0;                               // heading: 0 = +x
+  const emit = () => pts.push([Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10]);
+  const fwd = (dist: number, n: number, dy = 0) => {
+    for (let i = 0; i < n; i++) {
+      x += Math.cos(a) * (dist / n);
+      z += Math.sin(a) * (dist / n);
+      y += dy / n;
+      emit();
+    }
+  };
+  const turn = (deg: number, radius: number, n: number, dy = 0) => {
+    const total = (deg * Math.PI) / 180;
+    const arc = Math.abs(total) * radius;
+    for (let i = 0; i < n; i++) {
+      a += total / n;
+      x += Math.cos(a) * (arc / n);
+      z += Math.sin(a) * (arc / n);
+      y += dy / n;
+      emit();
+    }
+  };
+  const loop = (r: number, n: number) => {
+    // vertical loop in the heading plane with a slight sideways drift
+    const fx = Math.cos(a), fz = Math.sin(a);
+    const lx = -fz, lz = fx;
+    const bx = x, by = y, bz = z;
+    for (let i = 1; i <= n; i++) {
+      const t = (i / n) * Math.PI * 2;
+      x = bx + fx * Math.sin(t) * r + lx * (i / n) * 2.5;
+      z = bz + fz * Math.sin(t) * r + lz * (i / n) * 2.5;
+      y = by + (1 - Math.cos(t)) * r;
+      emit();
+    }
+  };
+  const glideHome = (n: number) => {
+    const tx = pts[0][0], ty = pts[0][1], tz = pts[0][2];
+    for (let i = 1; i < n; i++) {
+      x += (tx - x) / (n - i + 1);
+      y += (ty - y) / (n - i + 1);
+      z += (tz - z) / (n - i + 1);
+      emit();
+    }
+  };
+
+  emit();
+  fwd(6, 5);              // roll out of the station
+  fwd(24, 26, 22);        // clank-clank lift hill to Y+23 (slow: dense points)
+  fwd(3, 3);              // hang at the crest…
+  fwd(14, 5, -19);        // THE BIG DROP (fast: sparse points)
+  loop(6, 14);            // vertical loop #1
+  fwd(8, 4, 2);           // airtime bump up
+  fwd(8, 3, -2);          // …and over
+  turn(-180, 10, 12, 3);  // sweeping banked turn at the far end
+  fwd(10, 4, -4);         // dive back down
+  loop(5, 12);            // vertical loop #2
+  fwd(16, 6);             // straightaway
+  turn(-120, 9, 10, 4);   // snake left, climbing
+  turn(120, 9, 10, -4);   // snake right, dropping
+  glideHome(14);          // brake run back into the station
   return pts;
 }
 
