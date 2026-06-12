@@ -82,6 +82,11 @@ export class RemotePlayers {
 
   get count(): number { return this.map.size; }
 
+  /** Current positions of everyone else in the realm (mob targeting). */
+  positions(): { name: string; pos: THREE.Vector3 }[] {
+    return [...this.map.entries()].map(([name, r]) => ({ name, pos: r.rig.group.position }));
+  }
+
   private removeOne(name: string): void {
     const r = this.map.get(name);
     if (!r) return;

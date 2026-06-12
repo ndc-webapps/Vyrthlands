@@ -59,15 +59,34 @@ export class ServerApi {
   }
 }
 
-/** WebSocket presence: who is online in the server, join/leave events. */
+/** Wire format for one synced mob (leader -> followers). */
+export interface MobSnap {
+  i: number;  // id
+  d: number;  // def index within this world's enemy pool
+  x: number; y: number; z: number;
+  ry: number; // facing
+  h: number;  // health
+  a: number;  // aggro flag
+}
+
+/** WebSocket presence: who is online in the server, join/leave events,
+ *  plus shared simulation traffic (mobs, clock, shots, sleep). */
 export class Presence {
   private ws: WebSocket | null = null;
   players: string[] = [];
+  /** Username of the simulation leader (runs mobs + day/night clock). */
+  leader: string | null = null;
   onEvent: ((msg: string) => void) | null = null;
   onPlayers: ((players: string[]) => void) | null = null;
+  onLeader: ((leader: string | null) => void) | null = null;
   onPos: ((username: string, role: string, x: number, y: number, z: number, yaw: number) => void) | null = null;
   onChat: ((username: string, text: string) => void) | null = null;
   onBlock: ((username: string, x: number, y: number, z: number, id: number) => void) | null = null;
+  onMobs: ((mobs: MobSnap[], time: number) => void) | null = null;
+  onMobHit: ((username: string, id: number, dmg: number, kx: number, kz: number) => void) | null = null;
+  onMobAtk: ((target: string, dmg: number) => void) | null = null;
+  onShot: ((username: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, speed: number, dmg: number, color: number, hostile: boolean) => void) | null = null;
+  onSleep: ((username: string) => void) | null = null;
 
   connect(token: string, serverId: string): void {
     this.disconnect();
@@ -82,12 +101,21 @@ export class Presence {
           this.players = msg.players ?? [];
           this.onPlayers?.(this.players);
           this.onEvent?.(msg.type === 'join' ? `${msg.username} joined` : `${msg.username} left`);
+          if (msg.leader !== this.leader) {
+            this.leader = msg.leader ?? null;
+            this.onLeader?.(this.leader);
+          }
         }
         if (msg.type === 'pos') {
           this.onPos?.(msg.username, msg.role ?? 'swordsman', msg.x, msg.y, msg.z, msg.yaw ?? 0);
         }
         if (msg.type === 'chat') this.onChat?.(msg.username, msg.text);
         if (msg.type === 'block') this.onBlock?.(msg.username, msg.x, msg.y, msg.z, msg.id);
+        if (msg.type === 'mobs') this.onMobs?.(msg.mobs ?? [], msg.t ?? -1);
+        if (msg.type === 'mobhit') this.onMobHit?.(msg.username, msg.id, msg.dmg, msg.kx ?? 0, msg.kz ?? 0);
+        if (msg.type === 'mobatk') this.onMobAtk?.(msg.target, msg.dmg);
+        if (msg.type === 'shot') this.onShot?.(msg.username, msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.speed, msg.dmg, msg.color, !!msg.hostile);
+        if (msg.type === 'sleep') this.onSleep?.(msg.username);
       } catch { /* ignore */ }
     };
   }
@@ -105,9 +133,33 @@ export class Presence {
     if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'block', x, y, z, id }));
   }
 
+  /** Leader only: broadcast the mob snapshot + world clock. */
+  sendMobs(mobs: MobSnap[], time: number): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'mobs', mobs, t: time }));
+  }
+
+  /** Follower hit a mob: ask the leader to apply the damage. */
+  sendMobHit(id: number, dmg: number, kx: number, kz: number): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'mobhit', id, dmg, kx, kz }));
+  }
+
+  /** Leader only: one of my mobs hit another player. */
+  sendMobAtk(target: string, dmg: number): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'mobatk', target, dmg }));
+  }
+
+  sendShot(x: number, y: number, z: number, dx: number, dy: number, dz: number, speed: number, dmg: number, color: number, hostile: boolean): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'shot', x, y, z, dx, dy, dz, speed, dmg, color, hostile }));
+  }
+
+  sendSleep(): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'sleep' }));
+  }
+
   disconnect(): void {
     this.ws?.close();
     this.ws = null;
     this.players = [];
+    this.leader = null;
   }
 }

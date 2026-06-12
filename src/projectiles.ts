@@ -30,6 +30,11 @@ export class ProjectileManager {
     this.spawn(origin, dir, speed, damage, color, size, true);
   }
 
+  /** Cosmetic replica of another player's shot — never deals damage here. */
+  fireVisual(origin: THREE.Vector3, dir: THREE.Vector3, speed: number, color: number): void {
+    this.spawn(origin, dir, speed, 0, color, 0.16, false);
+  }
+
   private spawn(origin: THREE.Vector3, dir: THREE.Vector3, speed: number, damage: number, color: number, size: number, hostile: boolean): void {
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(size, 6, 6),
@@ -50,7 +55,7 @@ export class ProjectileManager {
       p.mesh.position.addScaledVector(p.vel, dt);
       const pos = p.mesh.position;
       let dead = p.life <= 0 || world.isSolidAt(pos.x, pos.y, pos.z);
-      if (!dead && !p.hostile) {
+      if (!dead && !p.hostile && p.damage > 0) {
         const mob = mobs.nearestWithin(pos, 0.95);
         if (mob) {
           mobs.damage(mob, p.damage, p.vel);

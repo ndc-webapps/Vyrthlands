@@ -235,6 +235,13 @@ function roomUsers(serverId) {
   return room ? [...room.values()].map((v) => v.username) : [];
 }
 
+/** Simulation leader = longest-connected member; they run mobs + the clock. */
+function roomLeader(serverId) {
+  const room = rooms.get(serverId);
+  if (!room || room.size === 0) return null;
+  return room.values().next().value.username;
+}
+
 function broadcast(serverId, msg) {
   const room = rooms.get(serverId);
   if (!room) return;
@@ -261,7 +268,7 @@ wss.on('connection', async (ws, req) => {
   let room = rooms.get(serverId);
   if (!room) rooms.set(serverId, (room = new Map()));
   room.set(user.id, { ws, username: user.username });
-  broadcast(serverId, { type: 'join', username: user.username, players: roomUsers(serverId) });
+  broadcast(serverId, { type: 'join', username: user.username, players: roomUsers(serverId), leader: roomLeader(serverId) });
 
   let lastChat = 0;
   const handle = (raw) => {
@@ -284,6 +291,33 @@ wss.on('connection', async (ws, req) => {
         if ([x, y, z, id].every((v) => Number.isFinite(v))) {
           broadcast(serverId, { type: 'block', username: user.username, x, y, z, id });
         }
+      } else if (msg.type === 'mobs') {
+        // mob snapshot + world clock — only the leader may drive these
+        if (user.username === roomLeader(serverId) && Array.isArray(msg.mobs) && msg.mobs.length <= 80) {
+          broadcast(serverId, { type: 'mobs', username: user.username, mobs: msg.mobs, t: Number(msg.t) || 0 });
+        }
+      } else if (msg.type === 'mobhit') {
+        // a non-leader hit a mob; relay so the leader applies the damage
+        if ([msg.id, msg.dmg].every((v) => Number.isFinite(v))) {
+          broadcast(serverId, { type: 'mobhit', username: user.username, id: msg.id, dmg: msg.dmg, kx: Number(msg.kx) || 0, kz: Number(msg.kz) || 0 });
+        }
+      } else if (msg.type === 'mobatk') {
+        // leader's mob hit another player; relay so the target takes damage
+        if (user.username === roomLeader(serverId) && typeof msg.target === 'string' && Number.isFinite(msg.dmg)) {
+          broadcast(serverId, { type: 'mobatk', target: msg.target, dmg: msg.dmg });
+        }
+      } else if (msg.type === 'shot') {
+        // projectile visuals + hostile fire replication
+        const nums = [msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.speed, msg.dmg];
+        if (nums.every((v) => Number.isFinite(v))) {
+          broadcast(serverId, {
+            type: 'shot', username: user.username,
+            x: msg.x, y: msg.y, z: msg.z, dx: msg.dx, dy: msg.dy, dz: msg.dz,
+            speed: msg.speed, dmg: msg.dmg, color: Number(msg.color) || 0xffffff, hostile: !!msg.hostile,
+          });
+        }
+      } else if (msg.type === 'sleep') {
+        broadcast(serverId, { type: 'sleep', username: user.username });
       }
     } catch { /* ignore malformed packets */ }
   };
@@ -295,7 +329,7 @@ wss.on('connection', async (ws, req) => {
     if (r) {
       r.delete(user.id);
       if (r.size === 0) rooms.delete(serverId);
-      else broadcast(serverId, { type: 'leave', username: user.username, players: roomUsers(serverId) });
+      else broadcast(serverId, { type: 'leave', username: user.username, players: roomUsers(serverId), leader: roomLeader(serverId) });
     }
   });
 });
