@@ -118,7 +118,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   [Block.CanopyYellow]: def(Block.CanopyYellow, 'Yellow Canopy', Tile.CanopyYellow, Tile.CanopyYellow, Tile.CanopyYellow,
     { hardness: 0.8, material: 'wood' }),
   [Block.RideSeat]: def(Block.RideSeat, 'Ride Seat', Tile.TicketPost, Tile.TicketPost, Tile.TicketPost,
-    { bucket: 'glow', hardness: 9999, material: 'none', requiredTier: 99, interactable: true }),
+    { solid: false, bucket: 'glow', hardness: 9999, material: 'none', requiredTier: 99, interactable: true }),
   // walk-through track piece: lay connected lines, then use one to ride a cart
   [Block.Rail]: def(Block.Rail, 'Cart Rail', Tile.Rail, Tile.Rail, Tile.Rail,
     { solid: false, opaque: false, bucket: 'cutout', hardness: 0.6, material: 'stone', interactable: true }),

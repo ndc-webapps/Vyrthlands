@@ -1218,11 +1218,36 @@ function startRideAt(x: number, y: number, z: number): void {
   if (best) beginPathRide(best, !!best.cart);
 }
 
+/** Drop the player at the first spot with standing room at/near a block. */
+function placePlayerNear(bx: number, by: number, bz: number): void {
+  if (!world || !player) return;
+  const clear = (cx: number, cy: number, cz: number) =>
+    !world!.isSolidAt(cx, cy + 0.2, cz) && !world!.isSolidAt(cx, cy + 1.4, cz);
+  for (let dy = 0; dy <= 4; dy++) {
+    for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+      const cx = bx + dx + 0.5, cy = by + dy, cz = bz + dz + 0.5;
+      if (clear(cx, cy, cz)) {
+        player.position.set(cx, cy, cz);
+        return;
+      }
+    }
+  }
+  player.position.set(bx + 0.5, by + 4, bz + 0.5); // last resort: pop up above
+}
+
 function endRide(finished: boolean): void {
   if (!activeRide || !player) return;
   const r = activeRide.ride;
   // park rides return you to the boarding post; rail carts stop where they are
-  if (finished && (r.returnToSeat ?? true)) player.position.set(r.seat[0] + 0.5, r.seat[1], r.seat[2] + 0.5);
+  if (finished && (r.returnToSeat ?? true)) {
+    placePlayerNear(r.seat[0], r.seat[1], r.seat[2]);
+  } else if (world) {
+    // hopping off mid-track (or a cart stop) must never leave you inside a block
+    const p = player.position;
+    if (world.isSolidAt(p.x, p.y + 0.2, p.z) || world.isSolidAt(p.x, p.y + 1.4, p.z)) {
+      placePlayerNear(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z));
+    }
+  }
   player.velocity.set(0, 0, 0);
   cartMesh.visible = false;
   hud.toast(finished ? `${r.name} complete!` : 'Hopped off the ride');
