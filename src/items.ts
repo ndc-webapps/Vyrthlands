@@ -83,6 +83,24 @@ export const enum Item {
   // expanded food / consumables
   TrailStew = 184,
   SunfruitTonic = 185,
+  // gem + tiered armor sets (copper/silver/diamond/mythic; iron + sun gold above)
+  Diamond = 186,
+  CopperHelmet = 187,
+  CopperChestplate = 188,
+  CopperLeggings = 189,
+  CopperBoots = 190,
+  SilverHelmet = 191,
+  SilverChestplate = 192,
+  SilverLeggings = 193,
+  SilverBoots = 194,
+  DiamondHelmet = 195,
+  DiamondChestplate = 196,
+  DiamondLeggings = 197,
+  DiamondBoots = 198,
+  MythicHelmet = 199,
+  MythicChestplate = 200,
+  MythicLeggings = 201,
+  MythicBoots = 202,
 }
 
 export interface ItemDef {
@@ -317,7 +335,37 @@ export const ITEMS: Record<number, ItemDef> = {
     for (let y = 5; y < 13; y++) for (let x = 6; x < 10; x++) px(x, y, y < 7 ? '#d8dce4' : '#ffb030');
     px(7, 3, '#8a6437'); px(8, 3, '#8a6437'); px(7, 4, '#d8dce4'); px(8, 4, '#d8dce4'); // cork + neck
   } },
+
+  [Item.Diamond]: mat(Item.Diamond, 'Diamond', shard('#b8f8f0', '#ffffff')),
+  // copper: cheap early set hammered straight from raw iron
+  [Item.CopperHelmet]: adef(Item.CopperHelmet, 'Copper Helmet', 'head', 0.05, helmIcon('#c87850', '#8a4a30')),
+  [Item.CopperChestplate]: adef(Item.CopperChestplate, 'Copper Chestplate', 'body', 0.08, chestIcon('#c87850', '#8a4a30')),
+  [Item.CopperLeggings]: adef(Item.CopperLeggings, 'Copper Leggings', 'legs', 0.06, legsIcon('#c87850', '#8a4a30')),
+  [Item.CopperBoots]: adef(Item.CopperBoots, 'Copper Boots', 'boots', 0.04, bootsIcon('#c87850', '#8a4a30')),
+  [Item.SilverHelmet]: adef(Item.SilverHelmet, 'Silver Helmet', 'head', 0.065, helmIcon('#d8e0e8', '#98a8b8')),
+  [Item.SilverChestplate]: adef(Item.SilverChestplate, 'Silver Chestplate', 'body', 0.095, chestIcon('#d8e0e8', '#98a8b8')),
+  [Item.SilverLeggings]: adef(Item.SilverLeggings, 'Silver Leggings', 'legs', 0.075, legsIcon('#d8e0e8', '#98a8b8')),
+  [Item.SilverBoots]: adef(Item.SilverBoots, 'Silver Boots', 'boots', 0.05, bootsIcon('#d8e0e8', '#98a8b8')),
+  [Item.DiamondHelmet]: adef(Item.DiamondHelmet, 'Diamond Helmet', 'head', 0.1, helmIcon('#b8f8f0', '#50c8d8')),
+  [Item.DiamondChestplate]: adef(Item.DiamondChestplate, 'Diamond Chestplate', 'body', 0.15, chestIcon('#b8f8f0', '#50c8d8')),
+  [Item.DiamondLeggings]: adef(Item.DiamondLeggings, 'Diamond Leggings', 'legs', 0.12, legsIcon('#b8f8f0', '#50c8d8')),
+  [Item.DiamondBoots]: adef(Item.DiamondBoots, 'Diamond Boots', 'boots', 0.08, bootsIcon('#b8f8f0', '#50c8d8')),
+  // mythic: end-game set forged from void shards + ancient relics
+  [Item.MythicHelmet]: adef(Item.MythicHelmet, 'Mythic Helmet', 'head', 0.12, helmIcon('#c890ff', '#7a40c0')),
+  [Item.MythicChestplate]: adef(Item.MythicChestplate, 'Mythic Chestplate', 'body', 0.18, chestIcon('#c890ff', '#7a40c0')),
+  [Item.MythicLeggings]: adef(Item.MythicLeggings, 'Mythic Leggings', 'legs', 0.14, legsIcon('#c890ff', '#7a40c0')),
+  [Item.MythicBoots]: adef(Item.MythicBoots, 'Mythic Boots', 'boots', 0.1, bootsIcon('#c890ff', '#7a40c0')),
 };
+
+/** Armor progressions, weakest set first (creative kit + UI ordering). */
+export const ARMOR_SETS: { name: string; pieces: Item[] }[] = [
+  { name: 'Copper', pieces: [Item.CopperHelmet, Item.CopperChestplate, Item.CopperLeggings, Item.CopperBoots] },
+  { name: 'Silver', pieces: [Item.SilverHelmet, Item.SilverChestplate, Item.SilverLeggings, Item.SilverBoots] },
+  { name: 'Iron', pieces: [Item.IronHelmet, Item.IronChestplate, Item.IronLeggings, Item.IronBoots] },
+  { name: 'Sun Gold', pieces: [Item.GoldHelmet, Item.GoldChestplate, Item.GoldLeggings, Item.GoldBoots] },
+  { name: 'Diamond', pieces: [Item.DiamondHelmet, Item.DiamondChestplate, Item.DiamondLeggings, Item.DiamondBoots] },
+  { name: 'Mythic', pieces: [Item.MythicHelmet, Item.MythicChestplate, Item.MythicLeggings, Item.MythicBoots] },
+];
 
 export function itemName(id: number): string {
   return ITEMS[id]?.name ?? BLOCKS[id]?.name ?? '???';
@@ -370,6 +418,9 @@ export function dropFor(blockId: number, heldItem: number | null, rand: number):
     case Block.GoldOre: return { item: Item.RawGold, count: 1 };
     case Block.VoidOre: return { item: Item.VoidShard, count: 1 };
     case Block.Crystal: return { item: Item.CrystalShard, count: 1 + (rand < 0.5 ? 1 : 0) };
+    case Block.Deepstone:
+      if (rand < 0.1) return { item: Item.Diamond, count: 1 }; // rare gem seam
+      return { item: blockId, count: 1 };
     case Block.Snow: return null;
     default: return { item: blockId, count: 1 };
   }

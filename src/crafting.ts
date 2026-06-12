@@ -69,6 +69,23 @@ export const RECIPES: Recipe[] = [
   r('crystal-boots', 'workbench', [{ item: Item.CrystalShard, count: 4 }], { item: Item.CrystalBoots, count: 1 }),
   // consumables
   r('sunfruit-tonic', 'workbench', [{ item: Item.MoonHerb, count: 2 }, { item: Item.CrystalShard, count: 1 }], { item: Item.SunfruitTonic, count: 1 }),
+  // tiered armor sets: copper (raw iron, pre-smelter) -> silver -> diamond -> mythic
+  r('copper-helmet', 'workbench', [{ item: Item.RawIron, count: 5 }], { item: Item.CopperHelmet, count: 1 }),
+  r('copper-chest', 'workbench', [{ item: Item.RawIron, count: 8 }], { item: Item.CopperChestplate, count: 1 }),
+  r('copper-legs', 'workbench', [{ item: Item.RawIron, count: 7 }], { item: Item.CopperLeggings, count: 1 }),
+  r('copper-boots', 'workbench', [{ item: Item.RawIron, count: 4 }], { item: Item.CopperBoots, count: 1 }),
+  r('silver-helmet', 'workbench', [{ item: Item.SilverOre, count: 5 }], { item: Item.SilverHelmet, count: 1 }),
+  r('silver-chest', 'workbench', [{ item: Item.SilverOre, count: 8 }], { item: Item.SilverChestplate, count: 1 }),
+  r('silver-legs', 'workbench', [{ item: Item.SilverOre, count: 7 }], { item: Item.SilverLeggings, count: 1 }),
+  r('silver-boots', 'workbench', [{ item: Item.SilverOre, count: 4 }], { item: Item.SilverBoots, count: 1 }),
+  r('diamond-helmet', 'workbench', [{ item: Item.Diamond, count: 5 }], { item: Item.DiamondHelmet, count: 1 }),
+  r('diamond-chest', 'workbench', [{ item: Item.Diamond, count: 8 }], { item: Item.DiamondChestplate, count: 1 }),
+  r('diamond-legs', 'workbench', [{ item: Item.Diamond, count: 7 }], { item: Item.DiamondLeggings, count: 1 }),
+  r('diamond-boots', 'workbench', [{ item: Item.Diamond, count: 4 }], { item: Item.DiamondBoots, count: 1 }),
+  r('mythic-helmet', 'workbench', [{ item: Item.VoidShard, count: 4 }, { item: Item.AncientRelic, count: 1 }], { item: Item.MythicHelmet, count: 1 }),
+  r('mythic-chest', 'workbench', [{ item: Item.VoidShard, count: 6 }, { item: Item.AncientRelic, count: 2 }], { item: Item.MythicChestplate, count: 1 }),
+  r('mythic-legs', 'workbench', [{ item: Item.VoidShard, count: 5 }, { item: Item.AncientRelic, count: 2 }], { item: Item.MythicLeggings, count: 1 }),
+  r('mythic-boots', 'workbench', [{ item: Item.VoidShard, count: 3 }, { item: Item.AncientRelic, count: 1 }], { item: Item.MythicBoots, count: 1 }),
 
   // smelter (raw ore + fuel, timed)
   r('iron-ingot', 'smelter', [{ item: Item.RawIron, count: 1 }, { item: Item.EmberCoal, count: 1 }], { item: Item.IronIngot, count: 1 }, 2.5),

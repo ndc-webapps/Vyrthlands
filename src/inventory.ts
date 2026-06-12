@@ -8,7 +8,7 @@ export interface Slot {
 }
 
 export const HOTBAR_SIZE = 10;
-export const PACK_SIZE = 30;
+export const PACK_SIZE = 42; // fits the creative palette + every armor set
 export const EQUIP_KEYS = ['head', 'body', 'legs', 'boots', 'weapon', 'offhand', 'accessory'] as const;
 export type EquipKey = typeof EQUIP_KEYS[number];
 
@@ -36,6 +36,32 @@ export class Inventory {
   }
 
   private notify(): void { this.onChange?.(); }
+
+  /** Creative loadout: role weapons at the front of the hotbar, every armor
+   *  set in the backpack, best set pre-equipped. Displaced hotbar blocks
+   *  slide into free pack slots. */
+  creativeKit(weapons: { item: number; durability?: number }[], armor: number[], equipSet: number[]): void {
+    if (!this.creative) return;
+    for (let w = weapons.length - 1; w >= 0; w--) {
+      const displaced = this.hotbar[HOTBAR_SIZE - 1];
+      for (let i = HOTBAR_SIZE - 1; i > 0; i--) this.hotbar[i] = this.hotbar[i - 1];
+      this.hotbar[0] = { item: weapons[w].item, count: 1, durability: weapons[w].durability };
+      if (displaced) {
+        const free = this.pack.indexOf(null);
+        if (free >= 0) this.pack[free] = displaced;
+      }
+    }
+    for (const id of armor) {
+      const free = this.pack.indexOf(null);
+      if (free < 0) break;
+      this.pack[free] = { item: id, count: 1 };
+    }
+    for (const id of equipSet) {
+      const slot = ITEMS[id]?.slot;
+      if (slot) this.equip[slot] = { item: id, count: 1 };
+    }
+    this.notify();
+  }
 
   selectedSlot(): Slot | null {
     return this.hotbar[this.selected];
