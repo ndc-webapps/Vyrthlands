@@ -255,6 +255,9 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
       d('divine-wraith', 'Divine Wraith', m('ghost', 0xe8e0c0, 0xd0c8a0, 0xffe080, { transparent: 0.6 }), 1.1, 18, 2.6, 0.11, 'ranged', [Item.SoulShard, Item.AncientRelic], { spawnTime: 'night', weight: 7, attackRange: 10, projectileColor: 0xffe080, projectileSpeed: 18 }),
     ],
   },
+
+  // peaceful park — nothing spawns, day or night
+  themepark: { dayMax: 0, nightMax: 0, spawnEvery: 9999, defs: [] },
 };
 
 export function enemiesForWorld(worldType: string): WorldEnemies {
