@@ -1210,6 +1210,11 @@ html, body {
   display: flex; align-items: center; justify-content: center;
 }
 .inv-slot:hover { border-color: rgba(255,255,255,0.3); }
+.inv-slot { touch-action: none; } /* pointer-drag works on touch screens */
+.drag-ghost {
+  position: fixed; z-index: 99; pointer-events: none; opacity: 0.85;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+}
 .inv-slot.picked { border-color: var(--accent); box-shadow: 0 0 10px rgba(92,214,240,0.4); }
 .inv-slot canvas { image-rendering: pixelated; border-radius: 4px; }
 .inv-slot .count {

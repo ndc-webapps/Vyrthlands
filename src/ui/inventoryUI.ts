@@ -13,7 +13,8 @@ const STATION_LABEL: Record<Station, string> = {
   smelter: 'Smelter',
 };
 
-/** Tabbed overlay: Backpack / Crafting / Character. Click a slot, click another to move/swap. */
+/** Tabbed overlay: Backpack / Crafting / Character.
+ *  Items move by drag-and-drop (mouse or touch) or click-then-click. */
 export class InventoryUI {
   private root = document.getElementById('inv-overlay')!;
   private inv: Inventory | null = null;
@@ -23,6 +24,8 @@ export class InventoryUI {
   private role: RoleDef | null = null;
   private stats: PlayerStats | null = null;
   private smeltJob: { recipe: Recipe; t: number } | null = null;
+  private dragGhost: HTMLElement | null = null;
+  private suppressClick = false;
 
   onClose: (() => void) | null = null;
   onCraft: ((recipe: Recipe) => void) | null = null;
@@ -104,6 +107,7 @@ export class InventoryUI {
     const s = this.inv!.getAt(ref);
     const el = document.createElement('div');
     el.className = 'inv-slot' + (this.pickedRef === ref ? ' picked' : '');
+    el.dataset.ref = ref;
     if (s) {
       el.appendChild(this.iconClone(s.item, 32));
       if (s.count > 1 && Number.isFinite(s.count)) {
@@ -127,6 +131,7 @@ export class InventoryUI {
       el.appendChild(l);
     }
     el.addEventListener('click', () => {
+      if (this.suppressClick) return; // a drag just ended on this slot
       if (this.pickedRef === null) {
         if (this.inv!.getAt(ref)) this.pickedRef = ref;
       } else {
@@ -135,7 +140,53 @@ export class InventoryUI {
       }
       this.render();
     });
+    el.addEventListener('pointerdown', (e) => this.beginDrag(e, ref, el));
     return el;
+  }
+
+  /** Drag-and-drop between slots (mouse or touch). Short taps without
+   *  movement fall through to the click-then-click flow above. */
+  private beginDrag(e: PointerEvent, ref: string, el: HTMLElement): void {
+    if (!this.inv?.getAt(ref)) return;
+    const startX = e.clientX, startY = e.clientY;
+    let started = false;
+    const move = (ev: PointerEvent) => {
+      if (!started && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 7) {
+        started = true;
+        const s = this.inv!.getAt(ref);
+        if (!s) return;
+        const ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.appendChild(this.iconClone(s.item, 36));
+        document.body.appendChild(ghost);
+        this.dragGhost = ghost;
+        el.classList.add('picked');
+      }
+      if (started && this.dragGhost) {
+        this.dragGhost.style.left = `${ev.clientX - 18}px`;
+        this.dragGhost.style.top = `${ev.clientY - 18}px`;
+      }
+      if (started) ev.preventDefault();
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (!started) return; // plain click — handled by the click listener
+      this.dragGhost?.remove();
+      this.dragGhost = null;
+      this.suppressClick = true;
+      window.setTimeout(() => { this.suppressClick = false; }, 0);
+      const target = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)
+        ?.closest?.('.inv-slot') as HTMLElement | null;
+      const toRef = target?.dataset.ref;
+      if (toRef && toRef !== ref) this.inv!.moveOrSwap(ref, toRef);
+      this.pickedRef = null;
+      this.render();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   }
 
   private iconClone(item: number, size: number): HTMLCanvasElement {

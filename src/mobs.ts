@@ -216,6 +216,12 @@ export class MobManager {
     return this.mobs.find((m) => m.id === id) ?? null;
   }
 
+  /** Silent removal (taming) — no death loot, no explosion. */
+  removeById(id: number): void {
+    const i = this.mobs.findIndex((m) => m.id === id);
+    if (i >= 0) this.remove(i);
+  }
+
   /** Leader: compact wire state of every mob. */
   snapshot(): import('./net').MobSnap[] {
     return this.mobs.map((m) => ({

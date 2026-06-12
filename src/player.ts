@@ -22,6 +22,10 @@ export class Player {
   touchSprint = false;
   /** True while actually sprint-moving this frame (hunger drain reads this). */
   sprinting = false;
+  /** Mounted speed multiplier; 0 = on foot. Riding boosts speed + jump. */
+  mountSpeed = 0;
+  /** Extra eye height while mounted (sitting on the animal's back). */
+  eyeOffset = 0;
   private fallPeakY = 0;     // highest Y while airborne
   private landedBlocks = 0;  // fall height of the most recent landing
 
@@ -54,7 +58,7 @@ export class Player {
 
   eyePosition(out: THREE.Vector3): THREE.Vector3 {
     out.copy(this.position);
-    out.y += EYE_HEIGHT;
+    out.y += EYE_HEIGHT + this.eyeOffset;
     return out;
   }
 
@@ -101,16 +105,18 @@ export class Player {
       // some keyboards can't report Ctrl+W+Space together (ghosting)
       const sprintKey = this.keys.has('ControlLeft') || this.keys.has('ControlRight')
         || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSprint;
-      const sprinting = sprintKey && fwd > 0;
+      const sprinting = sprintKey && fwd > 0 && this.mountSpeed === 0;
       this.sprinting = sprinting && Math.hypot(this.velocity.x, this.velocity.z) > 3;
-      const speed = WALK_SPEED * this.speedMult * (sprinting ? 1.35 : 1);
+      const speed = this.mountSpeed > 0
+        ? WALK_SPEED * this.mountSpeed                       // mounts have their own pace
+        : WALK_SPEED * this.speedMult * (sprinting ? 1.35 : 1);
       // smooth horizontal accel
       const accel = this.onGround ? 14 : 5;
       this.velocity.x += (wx * speed - this.velocity.x) * Math.min(1, accel * dt);
       this.velocity.z += (wz * speed - this.velocity.z) * Math.min(1, accel * dt);
       this.velocity.y += GRAVITY * dt;
       if (this.keys.has('Space') && this.onGround) {
-        this.velocity.y = JUMP_SPEED;
+        this.velocity.y = JUMP_SPEED * (this.mountSpeed > 0 ? 1.3 : 1); // mounts leap
         this.onGround = false;
       }
     }

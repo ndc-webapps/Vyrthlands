@@ -23,7 +23,9 @@ import { Inventory } from './inventory';
 import { breakInfo, dropFor, itemName, isPlaceable, ITEMS, Item, ARMOR_SETS } from './items';
 import { Station } from './crafting';
 import { ROLES, RoleId, computeStats, PlayerStats } from './roles';
-import { MobManager } from './mobs';
+import { MobManager, Mob } from './mobs';
+import { buildModel, Rig } from './enemies/models';
+import { EnemyDef, enemiesForWorld } from './enemies/registry';
 import { ProjectileManager } from './projectiles';
 import { ActiveEffects, ROLE_SKILLS, SKILLS, SkillContext } from './skills';
 import { saveWorld, loadSave, hasSave, clearSave, buildSaveData, normalizeSave, SaveData } from './save';
@@ -112,6 +114,17 @@ let clockT = 0;
 // theme park rides: seats placed by the generator, paths ridden here
 let parkRides: ParkRide[] = [];
 let activeRide: { ride: ParkRide; curve: THREE.CatmullRomCurve3; t: number } | null = null;
+// tamed companion: follows you, mountable for fast travel
+interface MountState {
+  def: EnemyDef;
+  group: THREE.Group;
+  rig: Rig;
+  pos: THREE.Vector3;
+  riding: boolean;
+  walkPhase: number;
+}
+let mount: MountState | null = null;
+const TAME_CHANCE = 0.25; // rare: ~4 feedings on average
 hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
 invUI.onClose = () => {
@@ -539,6 +552,10 @@ function connectPresence(s: ServerInfo): void {
     hud.toast(`${who} slept — morning has come`);
     chat.add(null, `${who} slept through the night`);
   };
+  presence.onTame = (username, id, mobName) => {
+    mobs.removeById(id); // tamed animals leave the wild for everyone
+    if (username !== auth.user?.username && mobName) hud.toast(`${username} tamed a ${mobName}!`);
+  };
 }
 
 // mob manager -> network bridges (no-ops outside a server session)
@@ -726,7 +743,7 @@ async function handleCreateWorld(): Promise<void> {
 function saveCloud(silent = false): void {
   if (!currentServer || !world || !player || !inventory) return;
   const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
-    role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
+    role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(), mountId: mount?.def.id ?? null,
   });
   serverApi.save(currentServer.id, data, { edits: data.edits })
     .then(() => { if (!silent) hud.toast('Progress saved to server'); })
@@ -749,7 +766,7 @@ window.addEventListener('beforeunload', (e) => {
   if (running) e.preventDefault();
   if (!currentServer || !world || !player || !inventory) return;
   const data = buildSaveData(world, player, mode, worldType, worldSize, renderDistance, {
-    role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(),
+    role, health, mana, vitality, spawn: spawnPoint, timeOfDay: environment.getTime(), inventory: inventory.serialize(), mountId: mount?.def.id ?? null,
   });
   serverApi.saveBeacon(currentServer.id, data, { edits: data.edits });
 });
@@ -808,6 +825,7 @@ btnQuit.addEventListener('click', () => {
   creatingServer = false;
   isLeader = false;
   mobs.remote = false;
+  disposeMount();
   running = false;
   exitFullscreen();
   paused = false;
@@ -843,6 +861,7 @@ function doSave(): void {
     spawn: spawnPoint,
     timeOfDay: environment.getTime(),
     inventory: inventory.serialize(),
+    mountId: mount?.def.id ?? null,
   });
   hud.toast(ok ? 'World saved' : 'Save failed (storage full?)');
   btnContinue.classList.remove('hidden');
@@ -875,6 +894,7 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   worldRenderer?.dispose();
   world = new World(seed, GENERATORS[worldType], WORLD_SIZES[worldSize]);
   mobs.setWorld(worldType);
+  disposeMount();
   activeRide = null;
   parkRides = worldType === 'themepark'
     ? themeParkRides({ seed, sizeBlocks: WORLD_SIZES[worldSize] * 16 })
@@ -925,6 +945,12 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   }
   worldRenderer.buildInitial(player.position.x, player.position.z);
 
+  // bring back your tamed companion from the save
+  if (save?.mountId) {
+    const def = enemiesForWorld(worldType).defs.find((m) => m.id === save.mountId);
+    if (def?.tameable) createMount(def);
+  }
+
   hud.setMode(mode, ROLES[role].name);
   hud.setSkills(ROLE_SKILLS[role].map((id) => SKILLS[id]), true);
   updateSkillHud();
@@ -971,6 +997,7 @@ function respawn(): void {
 /** Classic death screen: pause the world, show cause, wait for Respawn. */
 function die(cause: string): void {
   if (dead) return;
+  if (mount?.riding) dismountMount();
   dead = true;
   paused = true;
   mouseButtons.clear();
@@ -1105,7 +1132,11 @@ document.addEventListener('mousedown', (e) => {
   if (e.button === 0 && mode === 'creative') breakCooldown = 0;
   if (e.button === 2) {
     placeCooldown = 0;
-    // interact with stations / bed takes priority over placing
+    // creatures first (mount / feed), then stations / bed, then placing
+    if (tryUseCreature()) {
+      mouseButtons.delete(2);
+      return;
+    }
     if (currentHit && world) {
       const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
       if (BLOCKS[target]?.interactable) {
@@ -1186,6 +1217,137 @@ function updateRide(dt: number): void {
   player.velocity.set(0, 0, 0);
 }
 
+// ---------- tamed mounts (feed a wild animal, rare chance to tame, then ride) ----------
+function createMount(def: EnemyDef, pos?: THREE.Vector3): void {
+  disposeMount();
+  const built = buildModel(def.model, def.scale);
+  scene.add(built.group);
+  mount = {
+    def, group: built.group, rig: built.rig,
+    pos: pos ?? (player ? player.position.clone().add(new THREE.Vector3(1.5, 0, 1.5)) : new THREE.Vector3()),
+    riding: false, walkPhase: 0,
+  };
+  mount.group.position.copy(mount.pos);
+}
+
+function disposeMount(): void {
+  if (!mount) return;
+  if (mount.riding && player) { player.mountSpeed = 0; player.eyeOffset = 0; }
+  scene.remove(mount.group);
+  mount.group.traverse((o) => {
+    if (o instanceof THREE.Mesh) {
+      o.geometry.dispose();
+      (o.material as THREE.Material).dispose();
+    }
+  });
+  mount = null;
+}
+
+function tameMob(mob: Mob): void {
+  mobs.removeById(mob.id);
+  if (currentServer) presence.sendTame(mob.id, mob.def.name);
+  createMount(mob.def, mob.pos.clone());
+  hud.toast(`You tamed the ${mob.def.name}! Use it again to ride.`);
+  chat.add(null, `You tamed a ${mob.def.name}! It will follow you — use it to ride.`);
+}
+
+function mountUp(): void {
+  if (!mount || !player) return;
+  mount.riding = true;
+  player.mountSpeed = mount.def.rideSpeed ?? 1.8;
+  player.eyeOffset = Math.min(1.2, Math.max(0.4, mount.def.scale * 0.55));
+  hud.toast(`Riding the ${mount.def.name} — Shift / ▼ to dismount`);
+}
+
+function dismountMount(): void {
+  if (!mount || !player) return;
+  mount.riding = false;
+  player.mountSpeed = 0;
+  player.eyeOffset = 0;
+  mount.pos.copy(player.position).add(new THREE.Vector3(1.5, 0, 1.5));
+}
+
+/** Use-action on a creature: mount your companion, or feed a wild tameable.
+ *  Returns true when the action was handled (skip placing/attacking). */
+function tryUseCreature(origin?: THREE.Vector3, dir?: THREE.Vector3): boolean {
+  if (!player || !inventory || !world) return false;
+  const o = origin ?? player.eyePosition(new THREE.Vector3());
+  const d = dir ?? player.lookDirection(new THREE.Vector3());
+
+  // your companion: aim near it and use = saddle up
+  if (mount && !mount.riding) {
+    const to = mount.pos.clone().add(new THREE.Vector3(0, mount.def.scale * 0.6, 0)).sub(o);
+    const along = to.dot(d);
+    if (along > 0 && along < 4.5) {
+      const perp = Math.sqrt(Math.max(0, to.lengthSq() - along * along));
+      if (perp < 1.5) { mountUp(); return true; }
+    }
+  }
+
+  // wild tameable: feed it (any food or leaf fiber), rare chance to tame
+  const mob = mobs.rayPick(o, d, 3.5);
+  if (mob?.def.tameable) {
+    const slot = inventory.selectedSlot();
+    const isFood = slot != null && (ITEMS[slot.item]?.food != null || slot.item === Item.LeafFiber);
+    if (!isFood) {
+      hud.toast(`${mob.def.name} looks tameable — use food on it!`);
+      return true;
+    }
+    inventory.consumeSelected();
+    viewModel.triggerSwing();
+    if (Math.random() < TAME_CHANCE) tameMob(mob);
+    else hud.toast(`${mob.def.name} munches happily… keep feeding to tame it`);
+    return true;
+  }
+  return false;
+}
+
+/** Per-frame companion behavior: glued under you while riding, follows otherwise. */
+function updateMount(dt: number): void {
+  if (!mount || !player || !world) return;
+  if (mount.riding) {
+    if (player.keys.has('ShiftLeft') || player.keys.has('ShiftRight')) {
+      dismountMount();
+      return;
+    }
+    mount.pos.copy(player.position);
+    mount.group.position.copy(player.position);
+    mount.group.position.y -= 0.15;
+    mount.group.rotation.y = player.yaw;
+    animateMount(Math.hypot(player.velocity.x, player.velocity.z), dt);
+    return;
+  }
+  // follow at heel; teleport if left far behind
+  const tx = player.position.x - Math.sin(player.yaw + 2.4) * 2.2;
+  const tz = player.position.z - Math.cos(player.yaw + 2.4) * 2.2;
+  const dx = tx - mount.pos.x, dz = tz - mount.pos.z;
+  const dist = Math.hypot(dx, dz);
+  if (dist > 28) {
+    mount.pos.set(tx, player.position.y, tz);
+  } else if (dist > 1.2) {
+    const sp = Math.min(dist * 2, mount.def.speed + 2.5);
+    mount.pos.x += (dx / dist) * sp * dt;
+    mount.pos.z += (dz / dist) * sp * dt;
+    mount.group.rotation.y = Math.atan2(-dx, -dz);
+  }
+  const fx = Math.floor(mount.pos.x), fz = Math.floor(mount.pos.z);
+  const sy = world.inBounds(fx, 0, fz) ? world.surfaceY(fx, fz) : player.position.y;
+  mount.pos.y += (sy - mount.pos.y) * Math.min(1, 10 * dt);
+  mount.group.position.copy(mount.pos);
+  animateMount(dist > 1.2 ? 2.5 : 0, dt);
+}
+
+function animateMount(speed: number, dt: number): void {
+  if (!mount) return;
+  mount.walkPhase += dt * (2.5 + speed * 2.2);
+  const stride = Math.sin(mount.walkPhase) * Math.min(1, speed / 1.4) * 0.55;
+  mount.rig.legs.forEach((l, i) => { l.rotation.x = i % 2 === 0 ? stride : -stride; });
+  for (let i = 0; i < mount.rig.wings.length; i++) {
+    mount.rig.wings[i].rotation.z = (i === 0 ? 1 : -1) * Math.sin(performance.now() / 90) * 0.5;
+  }
+  if (mount.rig.tail) mount.rig.tail.rotation.y = Math.sin(mount.walkPhase * 0.7) * 0.25;
+}
+
 let eatCooldown = 0;
 
 /** Right-click with food/bandage held: food fills hunger, bandages heal. */
@@ -1228,8 +1390,8 @@ function tryPlace(): void {
 }
 
 function heldDamage(): number {
-  const slot = inventory?.selectedSlot();
-  return (slot ? ITEMS[slot.item]?.tool?.damage : undefined) ?? 1;
+  const w = inventory?.attackWeapon();
+  return (w ? ITEMS[w.item]?.tool?.damage : undefined) ?? 1;
 }
 
 function tryAttackMob(aimOrigin?: THREE.Vector3, aimDir?: THREE.Vector3): boolean {
@@ -1242,13 +1404,14 @@ function tryAttackMob(aimOrigin?: THREE.Vector3, aimDir?: THREE.Vector3): boolea
     player.eyePosition(eyePos);
     player.lookDirection(lookDir);
   }
-  const slot = inventory.selectedSlot();
-  const tool = slot ? ITEMS[slot.item]?.tool : null;
+  // held tool, or the equipped WEAPON slot as the default basic attack
+  const weapon = inventory.attackWeapon();
+  const tool = weapon ? ITEMS[weapon.item]?.tool : null;
   const kind = tool?.kind ?? 'hand';
   const damage = tool?.damage ?? 1;
 
   if (kind === 'gun' || kind === 'staff') {
-    const color = slot?.item === Item.Wand ? 0x8df06a : kind === 'gun' ? 0xffd070 : 0x7df0ff;
+    const color = weapon?.item === Item.Wand ? 0x8df06a : kind === 'gun' ? 0xffd070 : 0x7df0ff;
     const speed = kind === 'gun' ? 34 : 24;
     projectiles.fire(eyePos, lookDir, speed, damage * stats.rangedMult, color);
     if (currentServer) {
@@ -1273,7 +1436,7 @@ function tryAttackMob(aimOrigin?: THREE.Vector3, aimDir?: THREE.Vector3): boolea
     meleeCooldown = kind === 'sword' ? 0.42 : 0.55;
   }
   viewModel.triggerSwing();
-  if (inventory.damageSelectedTool()) {
+  if (weapon && inventory.damageToolAt(weapon.ref)) {
     hud.toast('Your weapon broke!');
     hud.select(inventory.selected);
   }
@@ -1422,10 +1585,12 @@ function updateSurvival(dt: number): void {
   const inWater = world.getBlock(Math.floor(p.x), Math.floor(eyeY), Math.floor(p.z)) === Block.Water;
   const feetInWater = world.getBlock(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)) === Block.Water;
 
-  // fall damage: hurts past 3.5 blocks, water landings are safe
+  // fall damage: hurts past 3.5 blocks (6 mounted — the animal absorbs it),
+  // water landings are safe
   const fell = player.consumeLanding();
-  if (fell > 3.5 && !feetInWater && !inLava) {
-    applyDamage((fell - 3.5) * 0.06);
+  const fallLimit = player.mountSpeed > 0 ? 6 : 3.5;
+  if (fell > fallLimit && !feetInWater && !inLava) {
+    applyDamage((fell - fallLimit) * (player.mountSpeed > 0 ? 0.03 : 0.06));
     hud.toast('Ouch! Fall damage');
   }
 
@@ -1557,6 +1722,7 @@ function setupTouchControls(): void {
       new THREE.Vector2((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1),
       camera
     );
+    if (tryUseCreature(touchRaycaster.ray.origin, touchRaycaster.ray.direction)) return;
     if (tryAttackMob(touchRaycaster.ray.origin, touchRaycaster.ray.direction)) return;
     if (currentHit) {
       const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
@@ -1680,6 +1846,7 @@ function frame(now: number): void {
   if (!paused) {
     if (activeRide) updateRide(dt);
     else if (!uiOpen) player.update(dt);
+    updateMount(dt);
     environment.update(dt, player.position.x, player.position.z);
     invUI.update(dt);
 
@@ -1769,7 +1936,8 @@ function frame(now: number): void {
   }
   if (isTouch) {
     touchControls.classList.toggle('hidden', !running || paused || uiOpen);
-    touchControls.classList.toggle('flying', player.flying); // shows the descend button
+    // descend button doubles as the dismount button while riding
+    touchControls.classList.toggle('flying', player.flying || !!mount?.riding);
   }
   worldRenderer.update(player.position.x, player.position.z);
   renderer.render(scene, camera);

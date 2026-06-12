@@ -318,6 +318,11 @@ wss.on('connection', async (ws, req) => {
         }
       } else if (msg.type === 'sleep') {
         broadcast(serverId, { type: 'sleep', username: user.username });
+      } else if (msg.type === 'tame') {
+        // a player tamed a mob — everyone (incl. the sim leader) removes it
+        if (Number.isFinite(msg.id)) {
+          broadcast(serverId, { type: 'tame', username: user.username, id: msg.id, mob: String(msg.mob ?? '').slice(0, 40) });
+        }
       }
     } catch { /* ignore malformed packets */ }
   };

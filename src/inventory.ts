@@ -136,17 +136,34 @@ export class Inventory {
 
   /** Wear the selected tool by 1. Returns true if the tool just broke. */
   damageSelectedTool(): boolean {
+    return this.damageToolAt(`h${this.selected}`);
+  }
+
+  /** Wear the tool at a slot ref by 1. Returns true if it just broke. */
+  damageToolAt(ref: string): boolean {
     if (this.creative) return false;
-    const slot = this.hotbar[this.selected];
+    const slot = this.getAt(ref);
     if (!slot || !ITEMS[slot.item]?.tool || slot.durability == null) return false;
     slot.durability--;
     if (slot.durability <= 0) {
-      this.hotbar[this.selected] = null;
-      this.notify();
+      this.setAt(ref, null);
       return true;
     }
     this.notify();
     return false;
+  }
+
+  /**
+   * The weapon used for basic attacks: the held hotbar item if it is a
+   * tool, otherwise whatever sits in the equipment WEAPON slot — so an
+   * equipped sword works without occupying a hotbar slot.
+   */
+  attackWeapon(): { item: number; ref: string } | null {
+    const held = this.hotbar[this.selected];
+    if (held && ITEMS[held.item]?.tool) return { item: held.item, ref: `h${this.selected}` };
+    const eq = this.equip.weapon;
+    if (eq && ITEMS[eq.item]?.tool) return { item: eq.item, ref: 'e:weapon' };
+    return null;
   }
 
   // ---------- slot addressing for UI ("h0".."h9", "p0".."p29", "e:head"...) ----------
