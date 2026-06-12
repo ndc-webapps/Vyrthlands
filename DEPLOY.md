@@ -72,6 +72,19 @@ Local dev needs none of this: `npm run server` + `npm run dev` uses a local sqli
 
 ## Troubleshooting
 
+- **Accounts/saves don't show up in Neon** → open
+  `https://<your-railway-domain>/api/_debug` in a browser:
+  - `engine` must be `postgres`. If it says `sqlite`, the backend cannot see
+    `DATABASE_URL`: the variable is on the wrong service (it must be on the
+    backend service itself, under its **Variables** tab — not a shared/project
+    variable that isn't referenced), or the service wasn't redeployed after
+    adding it. `envKeys` lists every db-looking env var the process can see.
+  - `dbHost` / `dbName` must match the Neon **branch + database** you are
+    inspecting in the Neon console (check the branch dropdown — data written
+    to `main` won't appear under a dev branch and vice versa).
+  - The backend also tolerates pasted values wrapped in quotes or copied as
+    `psql 'postgresql://…'`, and logs a loud warning at boot when it falls
+    back to sqlite on a hosting platform.
 - **"Cannot reach server"** on login → `VITE_API_URL` missing/wrong on Vercel,
   or Railway service is asleep/crashed (check Railway logs).
 - **CORS errors** in browser console → `ALLOWED_ORIGIN` doesn't exactly match

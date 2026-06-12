@@ -167,6 +167,9 @@ const deathCause = document.getElementById('death-cause')!;
 const btnRespawn = document.getElementById('btn-respawn')!;
 const btnDeathQuit = document.getElementById('btn-death-quit')!;
 const pauseSeedEl = document.getElementById('pause-seed')!;
+const pauseInvite = document.getElementById('pause-invite')!;
+const pauseInviteCode = document.getElementById('pause-invite-code')!;
+const btnCopyInvite = document.getElementById('btn-copy-invite')!;
 const btnNew = document.getElementById('btn-new')!;
 const btnContinue = document.getElementById('btn-continue')!;
 const btnModeCreative = document.getElementById('btn-mode-creative')!;
@@ -366,6 +369,40 @@ btnNavLogin.addEventListener('click', () => { setAuthTab('login'); openLogin(); 
 btnNavCreate.addEventListener('click', () => { setAuthTab('register'); openLogin(); });
 loginClose.addEventListener('click', closeLogin);
 
+// ---------- invite code sharing ----------
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // clipboard API needs a secure context — fall back to the legacy path
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+}
+
+function copyInvite(code: string): void {
+  void copyText(code).then((ok) => hud.toast(ok ? `Invite code ${code} copied!` : 'Copy failed — code: ' + code));
+}
+
+/** Pause menu shows the invite code (with copy) while in a cloud server. */
+function updatePauseInvite(): void {
+  const code = currentServer?.inviteCode;
+  pauseInvite.classList.toggle('hidden', !code);
+  pauseInviteCode.textContent = code ?? '';
+}
+
+btnCopyInvite.addEventListener('click', () => {
+  if (currentServer?.inviteCode) copyInvite(currentServer.inviteCode);
+});
+
 // ---------- server selection ----------
 function serverErrorMsg(msg: string): void {
   serverError.textContent = msg;
@@ -390,7 +427,7 @@ async function renderServers(): Promise<void> {
         <div class="sc-info">
           <span class="sc-name"></span>
           <span class="sc-meta">${s.worldType} · ${s.mode} · ${s.members.length}/${s.maxPlayers} players · last played ${when}</span>
-          ${s.inviteCode ? `<span class="sc-code">Invite: ${s.inviteCode}</span>` : ''}
+          ${s.inviteCode ? `<span class="sc-code">Invite: <b>${s.inviteCode}</b><button class="sc-copy" title="Copy invite code">Copy</button></span>` : ''}
         </div>
         <div class="sc-actions">
           <span class="sc-online">${s.online} online</span>
@@ -398,6 +435,7 @@ async function renderServers(): Promise<void> {
         </div>`;
       (card.querySelector('.sc-name') as HTMLElement).textContent = s.name + (s.isOwner ? ' (yours)' : '');
       (card.querySelector('.sc-play') as HTMLElement).addEventListener('click', () => void playServer(s));
+      card.querySelector('.sc-copy')?.addEventListener('click', () => copyInvite(s.inviteCode!));
       serverList.appendChild(card);
     }
   } catch (e) {
@@ -759,8 +797,10 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   viewModel.setVisible(!thirdPerson);
   remotes.clear();
   pauseSeedEl.textContent = `${GENERATORS[worldType].name} · ${ROLES[role].name} · seed ${seed}`;
+  updatePauseInvite();
   titleScreen.classList.add('hidden');
   landingPage.classList.add('hidden');
+  serverScreen.classList.add('hidden'); // Play/Join launches from here — hide it too
   pauseMenu.classList.add('hidden');
   if (invUI.isOpen()) invUI.close();
   running = true;
@@ -769,6 +809,7 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   dead = false;
   deathScreen.classList.add('hidden');
   requestPointerLock();
+  if (isTouch) hud.toast('Tap = place/use · hold = break · double-tap Jump = fly');
 }
 
 function respawn(): void {
@@ -1268,57 +1309,114 @@ function setupTouchControls(): void {
   zone.addEventListener('touchend', endJoy);
   zone.addEventListener('touchcancel', endJoy);
 
-  // --- look / camera (right) ---
+  // --- look / camera + Minecraft-style gestures (whole screen) ---
+  // Tap = use/place (attack a mob if one is in reach). Press & hold = break
+  // blocks (keeps breaking while held, even if you drag to aim). Drag = look.
   const look = document.getElementById('look-zone')!;
+  const HOLD_MS = 280;     // press this long to start breaking
+  const TAP_SLOP = 14;     // px of movement that turns a tap into a look-drag
   let lookId: number | null = null;
-  let lx = 0, ly = 0;
+  let lx = 0, ly = 0;          // last touch position (camera deltas)
+  let downX = 0, downY = 0;    // touch start (tap detection)
+  let downT = 0;
+  let lookDragged = false;
+  let holdTimer = 0;
+  let holdBreaking = false;
+
+  const stopBreaking = () => {
+    holdBreaking = false;
+    mouseButtons.delete(0);
+    breakProgress = 0;
+    hud.setBreakProgress(0);
+  };
+  /** Quick tap: attack mob in reach, use a station, eat, or place a block. */
+  const tapAction = () => {
+    if (!world || !player) return;
+    if (mode === 'survival' && tryAttackMob()) return;
+    if (currentHit) {
+      const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
+      if (BLOCKS[target]?.interactable) { interactWith(target, currentHit.block); return; }
+    }
+    if (tryEat()) return;
+    tryPlace();
+  };
+
   look.addEventListener('touchstart', (e) => {
+    if (lookId !== null) { e.preventDefault(); return; } // one finger steers
     const t = e.changedTouches[0];
     lookId = t.identifier;
-    lx = t.clientX; ly = t.clientY;
+    lx = downX = t.clientX;
+    ly = downY = t.clientY;
+    downT = performance.now();
+    lookDragged = false;
+    window.clearTimeout(holdTimer);
+    holdTimer = window.setTimeout(() => {
+      if (!running || paused || uiOpen || dead) return;
+      holdBreaking = true;
+      breakCooldown = 0;
+      mouseButtons.add(0);
+    }, HOLD_MS);
     e.preventDefault();
   }, { passive: false });
   look.addEventListener('touchmove', (e) => {
     for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === lookId && player && running && !paused && !uiOpen) {
+      if (t.identifier !== lookId) continue;
+      if (player && running && !paused && !uiOpen) {
         player.handleMouseMove((t.clientX - lx) * 2.4, (t.clientY - ly) * 2.4);
-        lx = t.clientX; ly = t.clientY;
+      }
+      lx = t.clientX; ly = t.clientY;
+      if (!lookDragged && Math.hypot(t.clientX - downX, t.clientY - downY) > TAP_SLOP) {
+        lookDragged = true;
+        // dragging before the hold fires is just looking around — once
+        // breaking has started, dragging keeps breaking (like Minecraft)
+        if (!holdBreaking) window.clearTimeout(holdTimer);
       }
     }
     e.preventDefault();
   }, { passive: false });
   const endLook = (e: TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null;
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.identifier !== lookId) continue;
+      lookId = null;
+      window.clearTimeout(holdTimer);
+      const wasBreaking = holdBreaking;
+      stopBreaking();
+      if (!wasBreaking && !lookDragged && performance.now() - downT < HOLD_MS &&
+          running && !paused && !uiOpen && !dead) {
+        tapAction();
+      }
+    }
   };
   look.addEventListener('touchend', endLook);
   look.addEventListener('touchcancel', endLook);
 
-  // --- action buttons ---
+  // --- jump / fly (Minecraft-style: double-tap jump toggles fly in creative,
+  //     while flying jump ascends and the extra button descends) ---
   const hold = (id: string, down: () => void, up: () => void) => {
     const el = document.getElementById(id)!;
     el.addEventListener('touchstart', (e) => { down(); e.preventDefault(); }, { passive: false });
     el.addEventListener('touchend', (e) => { up(); e.preventDefault(); }, { passive: false });
     el.addEventListener('touchcancel', () => up());
   };
-  hold('tbtn-jump', () => player?.keys.add('Space'), () => player?.keys.delete('Space'));
-  hold('tbtn-break', () => {
-    if (!running || paused || uiOpen) return;
-    if (mode === 'survival' && tryAttackMob()) return;
-    mouseButtons.add(0);
-  }, () => {
-    mouseButtons.delete(0);
-    breakProgress = 0;
-    hud.setBreakProgress(0);
-  });
-  hold('tbtn-place', () => {
-    if (!running || paused || uiOpen) return;
-    if (currentHit && world) {
-      const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
-      if (BLOCKS[target]?.interactable) { interactWith(target, currentHit.block); return; }
+  let lastJumpTap = 0;
+  const jumpBtn = document.getElementById('tbtn-jump')!;
+  jumpBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (!running || paused || uiOpen || !player) return;
+    const t = performance.now();
+    if (t - lastJumpTap < 300 && (mode === 'creative' || player.flying)) {
+      player.toggleFly();
+      hud.toast(player.flying ? 'Flying — double-tap Jump to land' : 'Flying off');
     }
-    placeCooldown = 0;
-    mouseButtons.add(2);
-  }, () => mouseButtons.delete(2));
+    lastJumpTap = t;
+    player.keys.add('Space');
+  }, { passive: false });
+  const jumpUp = () => player?.keys.delete('Space');
+  jumpBtn.addEventListener('touchend', (e) => { jumpUp(); e.preventDefault(); }, { passive: false });
+  jumpBtn.addEventListener('touchcancel', jumpUp);
+  hold('tbtn-down', () => player?.keys.add('ShiftLeft'), () => player?.keys.delete('ShiftLeft'));
+
+  document.getElementById('tbtn-chat')!.addEventListener('click', () => openChatInput());
   document.getElementById('tbtn-pause')!.addEventListener('click', () => {
     if (!running) return;
     paused = true;
@@ -1422,7 +1520,10 @@ function frame(now: number): void {
     clockT = 0;
     hud.setTimeOfDay(environment.getTime(), environment.isNight());
   }
-  if (isTouch) touchControls.classList.toggle('hidden', !running || paused || uiOpen);
+  if (isTouch) {
+    touchControls.classList.toggle('hidden', !running || paused || uiOpen);
+    touchControls.classList.toggle('flying', player.flying); // shows the descend button
+  }
   worldRenderer.update(player.position.x, player.position.z);
   renderer.render(scene, camera);
 }
