@@ -19,7 +19,7 @@ import { ViewModel } from './viewmodel';
 import { HUD } from './ui/hud';
 import { InventoryUI } from './ui/inventoryUI';
 import { Inventory } from './inventory';
-import { breakInfo, dropFor, itemName, isPlaceable, ITEMS, Item } from './items';
+import { breakInfo, dropFor, itemName, isPlaceable, ITEMS, Item, ARMOR_SETS } from './items';
 import { Station } from './crafting';
 import { ROLES, RoleId, computeStats, PlayerStats } from './roles';
 import { MobManager } from './mobs';
@@ -856,9 +856,15 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
 
   inventory = new Inventory(mode === 'creative');
   if (save) {
-    inventory.load(save.inventory);
+    inventory.load(save.inventory); // creative saves no inventory — kit rebuilds below
   } else if (mode === 'survival') {
     for (const it of ROLES[role].startItems) inventory.add(it.item, it.count, it.durability);
+  }
+  if (mode === 'creative') {
+    // role weapon in hand + every armor set in the pack, best set worn
+    const weapons = ROLES[role].startItems.filter((it) => ITEMS[it.item]?.tool);
+    const armor = ARMOR_SETS.flatMap((s) => s.pieces);
+    inventory.creativeKit(weapons, armor, ARMOR_SETS[ARMOR_SETS.length - 1].pieces);
   }
   hud.bind(inventory);
   invUI.bind(inventory, ROLES[role], stats);
@@ -1056,7 +1062,7 @@ let placeCooldown = 0;
 document.addEventListener('mousedown', (e) => {
   if (!running || paused || uiOpen || document.pointerLockElement !== canvas) return;
   mouseButtons.add(e.button);
-  if (e.button === 0 && mode === 'survival' && tryAttackMob()) {
+  if (e.button === 0 && tryAttackMob()) { // works in both modes — creative kit has a weapon
     mouseButtons.delete(0);
     return;
   }
@@ -1445,7 +1451,7 @@ function setupTouchControls(): void {
   /** Quick tap: attack mob in reach, use a station, eat, or place a block. */
   const tapAction = () => {
     if (!world || !player) return;
-    if (mode === 'survival' && tryAttackMob()) return;
+    if (tryAttackMob()) return;
     if (currentHit) {
       const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
       if (BLOCKS[target]?.interactable) { interactWith(target, currentHit.block); return; }
