@@ -67,9 +67,16 @@ export class Inventory {
     return this.hotbar[this.selected];
   }
 
-  /** Add items; returns count that did NOT fit. */
+  /** Add picked-up items; no-op in creative (you already have everything).
+   *  Returns count that did NOT fit. */
   add(item: number, count: number, durability?: number): number {
     if (this.creative) return 0;
+    return this.give(item, count, durability);
+  }
+
+  /** Place items in the bag regardless of mode (crafted outputs, rewards).
+   *  Works in creative too — crafting a tool/food must still deliver it. */
+  give(item: number, count: number, durability?: number): number {
     const max = itemStack(item);
     const lists = [this.hotbar, this.pack];
     // stack onto existing

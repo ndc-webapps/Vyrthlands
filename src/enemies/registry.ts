@@ -153,7 +153,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
       d('cyber-gangster', 'Cyber Gangster', m('humanoid', 0x3a3242, 0xff50d0, 0x40f0ff, { weapon: 'rifle' }), 1.0, 14, 2.7, 0.09, 'ranged', [Item.EnergyCore, Item.PlasmaCell], { weight: 12, attackRange: 11, projectileColor: 0xff50d0, projectileSpeed: 24 }),
       d('security-turret', 'Security Turret', m('turret', 0x4a5258, 0x32383e, 0xff3050), 1.0, 25, 0, 0.09, 'turret', [Item.CircuitBoard, Item.ScrapIron, Item.EnergyCore], { weight: 7, attackRange: 13, projectileColor: 0xff3050, projectileSpeed: 28 }),
       d('spider-bot', 'Spider Bot', m('spider', 0x3a4448, 0x2a3034, 0x40f0ff), 0.85, 9, 3.6, 0.06, 'pack', [Item.CircuitBoard, Item.ScrapIron], { packSize: 2, weight: 12 }),
-      d('chrome-hound', 'Chrome Hound', m('quad', 0x9aa8b8, 0x6a7888, 0x40f0ff, { ears: true }), 1.05, 18, 3.0, 0.0, 'roam', [Item.ScrapIron, Item.CircuitBoard], { spawnTime: 'day', weight: 7, tameable: true, rideSpeed: 2.1 }),
+      d('chrome-hound', 'Chrome Hound', m('quad', 0x9aa8b8, 0x6a7888, 0x40f0ff, { ears: true }), 1.05, 18, 3.0, 0.0, 'roam', [Item.RawMeat, Item.ScrapIron, Item.CircuitBoard], { spawnTime: 'day', weight: 7, tameable: true, rideSpeed: 2.1 }),
       d('mech-brute', 'Mech Brute', m('brute', 0x4a5258, 0x6a7478, 0xff7030), 1.6, 85, 1.5, 0.24, 'boss', [Item.EnergyCore, Item.PlasmaCell, Item.CircuitBoard], { weight: 2, attackRange: 2.3 }),
     ],
   },
@@ -164,7 +164,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
     defs: [
       d('ghost', 'Ghost', m('ghost', 0xb8c4dc, 0x9aa8c8, 0x7df0ff, { transparent: 0.55 }), 1.0, 12, 2.6, 0.09, 'chase', [Item.SoulShard], { weight: 18, spawnTime: 'night', detectRange: 18 }),
       d('witch', 'Witch', m('humanoid', 0x3a3045, 0x241c30, 0xb6ff30, { hood: true, weapon: 'staff' }), 1.0, 16, 2.1, 0.1, 'ranged', [Item.MoonHerb, Item.CursedWood], { weight: 12, attackRange: 11, projectileColor: 0xb6ff30, projectileSpeed: 17 }),
-      d('shadow-beast', 'Shadow Beast', m('quad', 0x16161e, 0x0e0e14, 0xff4040, { spikes: true }), 1.1, 18, 3.5, 0.11, 'ambush', [Item.SoulShard, Item.VoidShard], { spawnTime: 'night', weight: 12, detectRange: 14 }),
+      d('shadow-beast', 'Shadow Beast', m('quad', 0x16161e, 0x0e0e14, 0xff4040, { spikes: true }), 1.1, 18, 3.5, 0.11, 'ambush', [Item.RawMeat, Item.SoulShard, Item.VoidShard], { spawnTime: 'night', weight: 12, detectRange: 14 }),
       d('possessed', 'Possessed Villager', m('humanoid', 0x6a5a48, 0x4a4038, 0xc890ff, { zombieArms: true }), 1.0, 16, 1.6, 0.09, 'swarm', [Item.CursedWood, Item.MoonHerb], { weight: 14 }),
       d('grave-crawler', 'Grave Crawler', m('crawler', 0x4a4438, 0x33302a, 0xc890ff), 1.0, 12, 2.4, 0.08, 'ambush', [Item.SoulShard, Item.CursedWood], { spawnTime: 'night', weight: 10 }),
       d('cursed-knight', 'Cursed Knight', m('humanoid', 0x3a4050, 0x2a3040, 0xb890ff, { helmet: true, armor: true, weapon: 'sword', transparent: 0.85 }), 1.35, 60, 1.9, 0.2, 'boss', [Item.SoulShard, Item.AncientRelic, Item.MagicCrystal], { spawnTime: 'night', weight: 3 }),
@@ -177,7 +177,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
     dayMax: 6, nightMax: 12, spawnEvery: 2.4,
     defs: [
       d('fire-imp', 'Fire Imp', m('humanoid', 0x6a2418, 0xff5a1f, 0xffb030, { ears: true, glowBody: true }), 0.7, 9, 3.3, 0.07, 'pack', [Item.EmberCoal], { packSize: 2, weight: 20 }),
-      d('lava-beast', 'Lava Beast', m('quad', 0x4a1512, 0xff5a1f, 0xff8c32, { spikes: true, glowBody: true }), 1.3, 28, 2.4, 0.13, 'chase', [Item.EmberCoal, Item.VoidShard], { weight: 14, tameable: true, rideSpeed: 2.0 }),
+      d('lava-beast', 'Lava Beast', m('quad', 0x4a1512, 0xff5a1f, 0xff8c32, { spikes: true, glowBody: true }), 1.3, 28, 2.4, 0.13, 'chase', [Item.RawMeat, Item.EmberCoal, Item.VoidShard], { weight: 14, tameable: true, rideSpeed: 2.0 }),
       d('ash-skeleton', 'Ash Skeleton', m('humanoid', 0x55504a, 0x3a3631, 0xff7030, { skeletal: true, weapon: 'sword' }), 1.0, 14, 2.5, 0.09, 'chase', [Item.EmberCoal, Item.VoidShard], { weight: 14 }),
       d('demon-brute', 'Demon Brute', m('brute', 0x4a1512, 0x2e0d0a, 0xff5a1f, { horns: true }), 1.4, 55, 1.8, 0.2, 'boss', [Item.VoidShard, Item.EmberCoal, Item.GoldIngot], { weight: 4 }),
       d('magma-crawler', 'Magma Crawler', m('crawler', 0x3a1410, 0xff7030, 0xffb030, { glowBody: true }), 1.0, 14, 2.5, 0.1, 'ambush', [Item.EmberCoal], { weight: 10 }),
@@ -221,7 +221,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
       d('worm-beast', 'Worm Beast', m('crawler', 0x8a5a72, 0x6a4055, 0xff50d0), 1.5, 30, 2.0, 0.13, 'chase', [Item.VoidShard, Item.MagicCrystal], { weight: 8 }),
       d('crystal-guardian', 'Crystal Guardian', m('brute', 0x6a50d0, 0x9a80ff, 0xc8ffff, { glowBody: true }), 1.4, 60, 1.7, 0.2, 'boss', [Item.MagicCrystal, Item.CrystalShard, Item.PlasmaCell], { weight: 3 }),
       d('bio-slime', 'Bio Slime', m('crawler', 0x4a8a3a, 0x70c050, 0xb6ff30, { glowBody: true }), 0.9, 16, 1.4, 0.07, 'chase', [Item.InfectedTissue, Item.LeafFiber], { weight: 10 }),
-      d('dune-hopper', 'Dune Hopper', m('quad', 0x9a7ab0, 0x7a5a90, 0x80ff70, { ears: true }), 1.1, 16, 2.8, 0.0, 'roam', [Item.LeafFiber, Item.MagicCrystal], { spawnTime: 'day', weight: 8, tameable: true, rideSpeed: 2.0 }),
+      d('dune-hopper', 'Dune Hopper', m('quad', 0x9a7ab0, 0x7a5a90, 0x80ff70, { ears: true }), 1.1, 16, 2.8, 0.0, 'roam', [Item.RawMeat, Item.LeafFiber, Item.MagicCrystal], { spawnTime: 'day', weight: 8, tameable: true, rideSpeed: 2.0 }),
     ],
   },
 
@@ -230,7 +230,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
     dayMax: 4, nightMax: 8, spawnEvery: 3.0,
     defs: [
       d('wind-spirit', 'Wind Spirit', m('ghost', 0xb8c8dc, 0x98aac4, 0x7df0ff, { transparent: 0.6 }), 1.0, 12, 3.0, 0.08, 'chase', [Item.CrystalShard, Item.SoulShard], { weight: 16 }),
-      d('sky-beast', 'Sky Beast', m('flyer', 0x8aa0c8, 0x6a80a8, 0xffe080), 1.4, 20, 2.9, 0.11, 'fly', [Item.CrystalShard, Item.MagicCrystal], { weight: 10, tameable: true, rideSpeed: 2.2 }),
+      d('sky-beast', 'Sky Beast', m('flyer', 0x8aa0c8, 0x6a80a8, 0xffe080), 1.4, 20, 2.9, 0.11, 'fly', [Item.RawMeat, Item.CrystalShard, Item.MagicCrystal], { weight: 10, tameable: true, rideSpeed: 2.2 }),
       d('flying-skeleton', 'Flying Skeleton', m('flyer', 0xd8d4c8, 0xb0aca0, 0x70d0ff), 1.0, 12, 3.1, 0.09, 'fly', [Item.SoulShard, Item.SilverOre], { spawnTime: 'night', weight: 10 }),
       d('cloud-wisp', 'Cloud Wisp', m('ghost', 0xe8f0f8, 0xd0e0f0, 0xffffff, { transparent: 0.5 }), 0.8, 8, 2.2, 0.0, 'flee', [Item.CrystalShard], { spawnTime: 'day', weight: 10 }),
       d('storm-harpy', 'Storm Harpy', m('flyer', 0x4a4a6a, 0x35355a, 0xffe040), 1.2, 16, 3.4, 0.1, 'fly', [Item.MagicCrystal, Item.CrystalShard], { weight: 8, attackRange: 9, projectileColor: 0xffe040, projectileSpeed: 22 }),
@@ -255,7 +255,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
   mythology: {
     dayMax: 5, nightMax: 9, spawnEvery: 2.9,
     defs: [
-      d('horned-beast', 'Horned Beast', m('brute', 0x6a4a32, 0x4a3220, 0xff7030, { horns: true }), 1.3, 40, 2.2, 0.15, 'chase', [Item.AncientRelic, Item.PrimalHide], { weight: 14, tameable: true, rideSpeed: 1.9 }),
+      d('horned-beast', 'Horned Beast', m('brute', 0x6a4a32, 0x4a3220, 0xff7030, { horns: true }), 1.3, 40, 2.2, 0.15, 'chase', [Item.RawMeat, Item.AncientRelic, Item.PrimalHide], { weight: 14, tameable: true, rideSpeed: 1.9 }),
       d('harpy', 'Harpy', m('flyer', 0x8a6a4a, 0xc8a060, 0xffe080), 1.1, 14, 3.3, 0.09, 'fly', [Item.MagicCrystal, Item.LeafFiber], { weight: 12 }),
       d('one-eyed-brute', 'One-Eyed Brute', m('brute', 0x8a6848, 0x6a4c30, 0xffe080), 1.7, 90, 1.5, 0.26, 'boss', [Item.AncientRelic, Item.GoldIngot, Item.MagicCrystal], { weight: 2, attackRange: 2.4 }),
       d('temple-guardian', 'Temple Guardian', m('humanoid', 0xc8b890, 0x8a6840, 0xffe080, { helmet: true, armor: true, weapon: 'sword', shield: true }), 1.2, 32, 2.1, 0.12, 'patrol', [Item.AncientRelic, Item.GoldIngot], { weight: 14 }),
@@ -268,7 +268,7 @@ export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
   themepark: {
     dayMax: 2, nightMax: 1, spawnEvery: 8,
     defs: [
-      d('park-pony', 'Park Pony', m('quad', 0xc8a070, 0xf0d8b0, 0x2a2018, { ears: true }), 1.0, 14, 2.2, 0.0, 'roam', [Item.LeafFiber], { weight: 10, tameable: true, rideSpeed: 2.0 }),
+      d('park-pony', 'Park Pony', m('quad', 0xc8a070, 0xf0d8b0, 0x2a2018, { ears: true }), 1.0, 14, 2.2, 0.0, 'roam', [Item.RawMeat, Item.LeafFiber], { weight: 10, tameable: true, rideSpeed: 2.0 }),
     ],
   },
 };

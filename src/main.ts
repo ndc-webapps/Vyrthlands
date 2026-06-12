@@ -36,6 +36,9 @@ import { ServerApi, Presence, ServerInfo } from './net';
 import { RolePreviews } from './ui/rolePreview';
 import { sfx } from './sound';
 import { Particles } from './particles';
+import { initAnalytics, trackEvent } from './analytics';
+
+initAnalytics(); // StatsPilot pageview + custom events (no-op unless VITE_STATSPILOT_ID is set)
 
 // ---------- Renderer / scene ----------
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -715,6 +718,7 @@ document.getElementById('role-pick-join')!.addEventListener('click', () => {
     try {
       const s = await serverApi.join(joinCodeInput.value.trim());
       role = pickedRole; // first spawn in this realm uses the chosen role
+      trackEvent('server_join', { role });
       hud.toast(`Joined ${s.name} as ${ROLES[role].name}!`);
       joinCodeInput.value = '';
       await renderServers();
@@ -779,6 +783,7 @@ async function handleCreateWorld(): Promise<void> {
     seedInput.value = String(seed);
     try {
       const s = await serverApi.create({ name, worldType, mode, worldSize, seed });
+      trackEvent('server_create', { world: worldType, mode });
       creatingServer = false;
       currentServer = s;
       startGame(true);
@@ -1042,6 +1047,7 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   paused = false;
   uiOpen = false;
   dead = false;
+  trackEvent('game_start', { world: worldType, mode, cloud: !!currentServer });
   deathScreen.classList.add('hidden');
   enterFullscreen(); // immersive view while in a world (popped on quit)
   requestPointerLock();

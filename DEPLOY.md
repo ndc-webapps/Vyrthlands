@@ -52,6 +52,29 @@ Local dev needs none of this: `npm run server` + `npm run dev` uses a local sqli
    each other place/break blocks live.
 4. Refresh: you stay logged in and your progress reloads.
 
+## Analytics (optional)
+
+Vyrthlands can report page views and a few key events (`game_start`,
+`server_create`, `server_join`) to [StatsPilot](https://statspilot.vercel.app).
+
+1. Sign in at https://statspilot.vercel.app and create a project for this site.
+   Copy its **project id**.
+2. In **Vercel → Project → Settings → Environment Variables**, add:
+   - `VITE_STATSPILOT_ID` = the project id
+3. **Redeploy** so Vite bakes the value into the build.
+
+Important: the tracking snippet must ship **in the build** via this env var. It
+is injected at runtime by `src/analytics.ts` only when `VITE_STATSPILOT_ID` is
+set. Pasting the StatsPilot `<script>` into Vercel's UI does **not** work — there
+is nowhere in Vercel to inject a script into a static Vite build, which is why a
+previously pasted snippet never sent any data. Leave the var blank to disable
+analytics entirely (no script loads, no errors).
+
+Also note: StatsPilot may require your site's **domain to be registered/allowed**
+in the project settings before `/api/collect` accepts events — if the dashboard
+shows no data after a deploy, confirm the deployed domain is on the project's
+allowed list.
+
 ## Env vars reference
 
 | Var | Where | Value |
@@ -61,6 +84,7 @@ Local dev needs none of this: `npm run server` + `npm run dev` uses a local sqli
 | `PORT` | Railway | Auto-set by Railway. Local default 8081. |
 | `DB_PATH` | local only | sqlite file location override. |
 | `VITE_API_URL` | Vercel | Railway domain. If unset, frontend expects same-origin backend (local dev proxy). |
+| `VITE_STATSPILOT_ID` | Vercel | StatsPilot project id for analytics. If blank/unset, analytics are disabled. Must be set at build time. |
 
 ## Alternatives
 
