@@ -613,12 +613,38 @@ btnServerCreate.addEventListener('click', () => {
   serverNameInput.value = '';
   showWorldSelect();
 });
+// ---------- join flow: pick a role before entering a friend's realm ----------
+const roleModal = document.getElementById('role-modal')!;
+const rolePickDesc = document.getElementById('role-pick-desc')!;
+let pickedRole: RoleId = 'swordsman';
+
+document.getElementById('role-pick-row')!.querySelectorAll('button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.getElementById('role-pick-row')!.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    pickedRole = btn.dataset.role as RoleId;
+    rolePickDesc.textContent = ROLES[pickedRole].desc;
+  });
+});
+
 btnJoinCode.addEventListener('click', () => {
+  serverErrorMsg('');
+  if (!joinCodeInput.value.trim()) {
+    serverErrorMsg('Type an invite code first');
+    return;
+  }
+  roleModal.classList.remove('hidden');
+});
+
+document.getElementById('role-pick-cancel')!.addEventListener('click', () => roleModal.classList.add('hidden'));
+document.getElementById('role-pick-join')!.addEventListener('click', () => {
   void (async () => {
     serverErrorMsg('');
+    roleModal.classList.add('hidden');
     try {
       const s = await serverApi.join(joinCodeInput.value.trim());
-      hud.toast(`Joined ${s.name}!`);
+      role = pickedRole; // first spawn in this realm uses the chosen role
+      hud.toast(`Joined ${s.name} as ${ROLES[role].name}!`);
       joinCodeInput.value = '';
       await renderServers();
     } catch (e) {
@@ -1206,10 +1232,16 @@ function heldDamage(): number {
   return (slot ? ITEMS[slot.item]?.tool?.damage : undefined) ?? 1;
 }
 
-function tryAttackMob(): boolean {
+function tryAttackMob(aimOrigin?: THREE.Vector3, aimDir?: THREE.Vector3): boolean {
   if (!player || !inventory || meleeCooldown > 0) return false;
-  player.eyePosition(eyePos);
-  player.lookDirection(lookDir);
+  // default: attack along the crosshair; touch passes the tapped ray instead
+  if (aimOrigin && aimDir) {
+    eyePos.copy(aimOrigin);
+    lookDir.copy(aimDir);
+  } else {
+    player.eyePosition(eyePos);
+    player.lookDirection(lookDir);
+  }
   const slot = inventory.selectedSlot();
   const tool = slot ? ITEMS[slot.item]?.tool : null;
   const kind = tool?.kind ?? 'hand';
@@ -1434,6 +1466,20 @@ function updateSurvival(dt: number): void {
 const touchControls = document.getElementById('touch-controls')!;
 if (isTouch) setupTouchControls();
 
+// Touch aiming: target the block under the FINGER, not the crosshair.
+// While a gesture finger is down, the interaction ray comes from here.
+const touchRaycaster = new THREE.Raycaster();
+let touchAim: { x: number; y: number } | null = null;
+
+function hitFromScreen(sx: number, sy: number): ReturnType<typeof raycastVoxel> {
+  if (!world) return null;
+  touchRaycaster.setFromCamera(
+    new THREE.Vector2((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1),
+    camera
+  );
+  return raycastVoxel(world, touchRaycaster.ray.origin, touchRaycaster.ray.direction, REACH + 1.5);
+}
+
 function setupTouchControls(): void {
   hud.onSkillTap = (i) => { if (running && !paused && !uiOpen) castSkill(i); };
 
@@ -1502,10 +1548,16 @@ function setupTouchControls(): void {
     breakProgress = 0;
     hud.setBreakProgress(0);
   };
-  /** Quick tap: attack mob in reach, use a station, eat, or place a block. */
-  const tapAction = () => {
+  /** Quick tap: attack mob under the finger, use a station, eat, or place. */
+  const tapAction = (sx: number, sy: number) => {
     if (!world || !player) return;
-    if (tryAttackMob()) return;
+    // aim everything at the tapped point, not the crosshair
+    currentHit = hitFromScreen(sx, sy);
+    touchRaycaster.setFromCamera(
+      new THREE.Vector2((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1),
+      camera
+    );
+    if (tryAttackMob(touchRaycaster.ray.origin, touchRaycaster.ray.direction)) return;
     if (currentHit) {
       const target = world.getBlock(currentHit.block.x, currentHit.block.y, currentHit.block.z);
       if (BLOCKS[target]?.interactable) { interactWith(target, currentHit.block); return; }
@@ -1522,6 +1574,7 @@ function setupTouchControls(): void {
     ly = downY = t.clientY;
     downT = performance.now();
     lookDragged = false;
+    touchAim = { x: t.clientX, y: t.clientY }; // aim at the finger from now on
     window.clearTimeout(holdTimer);
     holdTimer = window.setTimeout(() => {
       if (!running || paused || uiOpen || dead) return;
@@ -1534,14 +1587,16 @@ function setupTouchControls(): void {
   look.addEventListener('touchmove', (e) => {
     for (const t of Array.from(e.changedTouches)) {
       if (t.identifier !== lookId) continue;
-      if (player && running && !paused && !uiOpen) {
+      // while breaking, the finger drags the AIM; otherwise it drags the camera
+      if (player && running && !paused && !uiOpen && !holdBreaking) {
         player.handleMouseMove((t.clientX - lx) * 1.8, (t.clientY - ly) * 1.8);
       }
       lx = t.clientX; ly = t.clientY;
+      if (touchAim) { touchAim.x = t.clientX; touchAim.y = t.clientY; }
       if (!lookDragged && Math.hypot(t.clientX - downX, t.clientY - downY) > TAP_SLOP) {
         lookDragged = true;
         // dragging before the hold fires is just looking around — once
-        // breaking has started, dragging keeps breaking (like Minecraft)
+        // breaking has started, dragging re-aims while it keeps breaking
         if (!holdBreaking) window.clearTimeout(holdTimer);
       }
     }
@@ -1551,12 +1606,13 @@ function setupTouchControls(): void {
     for (const t of Array.from(e.changedTouches)) {
       if (t.identifier !== lookId) continue;
       lookId = null;
+      touchAim = null;
       window.clearTimeout(holdTimer);
       const wasBreaking = holdBreaking;
       stopBreaking();
       if (!wasBreaking && !lookDragged && performance.now() - downT < HOLD_MS &&
           running && !paused && !uiOpen && !dead) {
-        tapAction();
+        tapAction(t.clientX, t.clientY);
       }
     }
   };
@@ -1687,7 +1743,14 @@ function frame(now: number): void {
   } else {
     camera.position.copy(eyePos);
   }
-  currentHit = uiOpen ? null : raycastVoxel(world, eyePos, lookDir, REACH);
+  if (uiOpen) {
+    currentHit = null;
+  } else if (isTouch && touchAim) {
+    // touch gesture in progress: target the block under the finger
+    currentHit = hitFromScreen(touchAim.x, touchAim.y);
+  } else {
+    currentHit = raycastVoxel(world, eyePos, lookDir, REACH);
+  }
   if (currentHit) {
     highlight.visible = true;
     highlight.position.set(
