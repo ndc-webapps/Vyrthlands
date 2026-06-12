@@ -96,6 +96,10 @@ export class Environment {
 
   getTime(): number { return this.time; }
   setTime(t: number): void { this.time = ((t % 1) + 1) % 1; }
+  /** Days survived in this session (counts day/night wraps). */
+  private day = 1;
+  getDay(): number { return this.day; }
+  resetDay(): void { this.day = 1; }
   /** Night = sun below the daylight band. */
   isNight(): boolean {
     return Math.max(0, Math.sin(this.time * Math.PI * 2 - Math.PI * 0.1)) < 0.08;
@@ -112,7 +116,9 @@ export class Environment {
   }
 
   update(dt: number, playerX: number, playerZ: number): void {
+    const prev = this.time;
     this.time = (this.time + dt * this.timeScale / DAY_LENGTH_SECONDS) % 1;
+    if (this.time < prev) this.day++; // wrapped past midnight
     const t = this.time;
 
     // daylight factor: 1 at noon-ish, 0 at night
