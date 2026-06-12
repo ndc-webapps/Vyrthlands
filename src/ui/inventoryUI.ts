@@ -64,8 +64,7 @@ export class InventoryUI {
     if (this.smeltJob.t <= 0) {
       const r = this.smeltJob.recipe;
       this.smeltJob = null;
-      craft(this.inv, r);
-      this.onCraft?.(r);
+      if (craft(this.inv, r)) this.onCraft?.(r);
       if (this.isOpen()) this.render();
     }
   }

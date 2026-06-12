@@ -110,12 +110,14 @@ export function canCraft(inv: Inventory, recipe: Recipe): boolean {
   return recipe.inputs.every((i) => inv.countOf(i.item) >= i.count);
 }
 
-/** Consume inputs and add output. Returns false if ingredients missing or inventory full. */
+/** Consume inputs and deliver the output to the bag. Returns false if
+ *  ingredients are missing or there was no room for the result. Uses give()
+ *  so crafted tools/food/blocks land in the bag in creative mode too. */
 export function craft(inv: Inventory, recipe: Recipe): boolean {
   if (!canCraft(inv, recipe)) return false;
   if (!inv.creative) {
     for (const i of recipe.inputs) inv.remove(i.item, i.count);
   }
-  const left = inv.add(recipe.output.item, recipe.output.count, recipe.durability);
-  return left === 0 || inv.creative;
+  const left = inv.give(recipe.output.item, recipe.output.count, recipe.durability);
+  return left === 0;
 }

@@ -101,6 +101,8 @@ export const enum Item {
   MythicChestplate = 200,
   MythicLeggings = 201,
   MythicBoots = 202,
+  // forageable early-game food (drops from leaves)
+  WildBerries = 203,
 }
 
 export interface ItemDef {
@@ -296,6 +298,13 @@ export const ITEMS: Record<number, ItemDef> = {
   [Item.PlasmaCell]: mat(Item.PlasmaCell, 'Plasma Cell', shard('#ff50d0', '#ffd0f0')),
   [Item.RawMeat]: fdef(Item.RawMeat, 'Raw Meat', 0.1, meatIcon(true)),
   [Item.CookedMeat]: fdef(Item.CookedMeat, 'Cooked Meat', 0.35, meatIcon(false)),
+  [Item.WildBerries]: fdef(Item.WildBerries, 'Wild Berries', 0.18, (px) => {
+    px(8, 3, '#4ec048'); px(9, 4, '#5cb84a'); px(7, 4, '#479038'); // leafy sprig
+    for (const [bx, by] of [[6, 7], [9, 7], [7, 9], [10, 9], [8, 11]] as const) {
+      px(bx, by, '#d0304a'); px(bx + 1, by, '#e0354a');
+      px(bx, by + 1, '#a01030'); px(bx + 1, by + 1, '#c02038');
+    }
+  }),
   [Item.Bandage]: { id: Item.Bandage, name: 'Bandage', stack: 16, heals: 0.3, icon: bandageIcon },
   [Item.LeatherCap]: adef(Item.LeatherCap, 'Hide Cap', 'head', 0.04, helmIcon('#a87848', '#7a4a2a')),
   [Item.LeatherTunic]: adef(Item.LeatherTunic, 'Hide Tunic', 'body', 0.06, chestIcon('#a87848', '#7a4a2a')),
@@ -409,8 +418,9 @@ export function dropFor(blockId: number, heldItem: number | null, rand: number):
   switch (blockId) {
     case Block.Grass: return { item: Block.Dirt, count: 1 };
     case Block.Leaves:
-      if (rand < 0.25) return { item: Item.Stick, count: 1 };
-      if (rand < 0.45) return { item: Item.LeafFiber, count: 1 };
+      if (rand < 0.14) return { item: Item.WildBerries, count: 1 }; // forage food
+      if (rand < 0.34) return { item: Item.Stick, count: 1 };
+      if (rand < 0.52) return { item: Item.LeafFiber, count: 1 };
       return null;
     case Block.Glass: return null; // shatters
     case Block.EmberOre: return { item: Item.EmberCoal, count: 1 + (rand < 0.3 ? 1 : 0) };
