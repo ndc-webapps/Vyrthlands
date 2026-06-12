@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildAvatar, animateAvatar, AvatarRig } from './playerModel';
+import { buildAvatar, animateAvatar, disposeAvatar, AvatarRig } from './playerModel';
 import { RoleId, ROLES } from './roles';
 
 interface Remote {
@@ -69,7 +69,9 @@ export class RemotePlayers {
   update(dt: number): void {
     for (const r of this.map.values()) {
       r.rig.group.position.lerp(r.target, Math.min(1, 10 * dt));
-      const targetRot = r.yaw + Math.PI;
+      // the avatar's face is at -Z, which IS the look direction at this yaw —
+      // adding PI here made players face away from where they were looking
+      const targetRot = r.yaw;
       let d = targetRot - r.rig.group.rotation.y;
       while (d > Math.PI) d -= Math.PI * 2;
       while (d < -Math.PI) d += Math.PI * 2;
@@ -91,14 +93,10 @@ export class RemotePlayers {
     const r = this.map.get(name);
     if (!r) return;
     this.group.remove(r.rig.group);
-    r.rig.group.traverse((o) => {
-      if (o instanceof THREE.Mesh || o instanceof THREE.Sprite) {
-        (o as THREE.Mesh).geometry?.dispose?.();
-        const m = (o as THREE.Mesh).material as THREE.Material & { map?: THREE.Texture };
-        m?.map?.dispose?.();
-        m?.dispose?.();
-      }
-    });
+    disposeAvatar(r.rig); // meshes (handles per-face material arrays + skin textures)
+    const tagMat = r.tag.material as THREE.SpriteMaterial;
+    tagMat.map?.dispose();
+    tagMat.dispose();
     this.map.delete(name);
   }
 
