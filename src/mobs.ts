@@ -30,6 +30,10 @@ export class Mob {
   hitH: number;
   group: THREE.Group;
   rig: Rig;
+  // floating health bar (created on first damage, fades after a few seconds)
+  barT = 0;
+  private barBg: THREE.Sprite | null = null;
+  private barFill: THREE.Sprite | null = null;
   // behavior state
   phase = Math.random() * Math.PI * 2;
   wanderT = 0;
@@ -61,6 +65,36 @@ export class Mob {
     return out.copy(this.pos).add(_up.set(0, this.hitH * 0.55, 0));
   }
 
+  /** Show the floating health bar for `seconds`. */
+  showBar(seconds: number): void {
+    this.barT = seconds;
+    if (!this.barBg) {
+      this.barBg = new THREE.Sprite(new THREE.SpriteMaterial({ map: barTexture(), color: 0x14161c, depthTest: false }));
+      this.barBg.scale.set(1.0, 0.1, 1);
+      this.barFill = new THREE.Sprite(new THREE.SpriteMaterial({ map: barTexture(), depthTest: false }));
+      this.barFill.scale.set(0.94, 0.06, 1);
+      this.group.add(this.barBg);
+      this.group.add(this.barFill);
+    }
+  }
+
+  private updateBar(dt: number): void {
+    if (!this.barBg || !this.barFill) return;
+    this.barT -= dt;
+    const show = this.barT > 0 && this.health < this.maxHealth;
+    this.barBg.visible = show;
+    this.barFill.visible = show;
+    if (!show) return;
+    const frac = Math.max(0, Math.min(1, this.health / this.maxHealth));
+    const y = this.hitH + 0.35;
+    this.barBg.position.set(0, y, 0);
+    this.barFill.position.set(-(1 - frac) * 0.47, y, 0);
+    this.barFill.scale.set(0.94 * frac + 0.0001, 0.06, 1);
+    (this.barFill.material as THREE.SpriteMaterial).color.setHex(
+      frac > 0.55 ? 0x57d65a : frac > 0.25 ? 0xe8c050 : 0xe0354a
+    );
+  }
+
   flash(): void {
     for (const m of this.rig.flashMats) {
       if (this.hurtT > 0) m.color.setHex(0xb03048);
@@ -77,6 +111,7 @@ export class Mob {
 
   /** Walk-cycle / hover animation, driven each frame by the manager. */
   animate(dt: number, now: number): void {
+    this.updateBar(dt);
     const moving = Math.hypot(this.vel.x, this.vel.z);
     this.phase += dt * (2.5 + moving * 2.4);
     const stride = Math.sin(this.phase) * Math.min(1, moving / 1.4) * 0.55;
@@ -110,6 +145,8 @@ export class Mob {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
         (o.material as THREE.Material).dispose();
+      } else if (o instanceof THREE.Sprite) {
+        o.material.dispose(); // shared bar texture stays alive
       }
     });
   }
@@ -118,6 +155,20 @@ export class Mob {
 const _up = new THREE.Vector3();
 const _tmp = new THREE.Vector3();
 const _shootDir = new THREE.Vector3();
+
+// 1x1 white texture shared by all health-bar sprites
+let _barTex: THREE.Texture | null = null;
+function barTexture(): THREE.Texture {
+  if (!_barTex) {
+    const c = document.createElement('canvas');
+    c.width = 2; c.height = 2;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, 2, 2);
+    _barTex = new THREE.CanvasTexture(c);
+  }
+  return _barTex;
+}
 
 /**
  * Per-world enemy spawning + behavior AI.
@@ -253,7 +304,7 @@ export class MobManager {
       if (!m.netPos) m.netPos = new THREE.Vector3();
       m.netPos.set(s.x, s.y, s.z);
       m.netYaw = s.ry;
-      if (s.h < m.health) m.hurtT = 0.18; // flash on damage we observe
+      if (s.h < m.health) { m.hurtT = 0.18; m.showBar(4); } // damage we observe
       m.health = s.h;
       m.aggro = s.a === 1;
     }
@@ -621,11 +672,13 @@ export class MobManager {
     if (this.remote) {
       // follower: show feedback locally, let the leader apply the real damage
       mob.hurtT = 0.18;
+      mob.showBar(4);
       this.onForwardHit?.(mob.id, dmg, knockFrom?.x ?? 0, knockFrom?.z ?? 0);
       return;
     }
     mob.health -= dmg;
     mob.hurtT = 0.18;
+    mob.showBar(4);
     mob.provoked = true;
     if (knockFrom) {
       const mass = Math.max(1, mob.def.scale);

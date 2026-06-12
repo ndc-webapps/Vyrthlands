@@ -242,12 +242,18 @@ export class HUD {
   }
 
   /** Sun/moon clock in the corner. t in [0,1), one full day. */
-  setTimeOfDay(t: number, night: boolean): void {
+  setTimeOfDay(t: number, night: boolean, day = 0): void {
     const mins = Math.floor(t * 24 * 60);
     const hh = String(Math.floor(mins / 60)).padStart(2, '0');
     const mm = String(mins % 60).padStart(2, '0');
-    this.dayEl.textContent = `${night ? '☾' : '☀'} ${hh}:${mm}`;
+    this.dayEl.textContent = `${day > 0 ? `Day ${day} · ` : ''}${night ? '☾' : '☀'} ${hh}:${mm}`;
     this.dayEl.dataset.night = night ? '1' : '0';
+  }
+
+  private coordsEl = document.getElementById('coords')!;
+  /** Position readout under the clock. */
+  setCoords(x: number, y: number, z: number): void {
+    this.coordsEl.textContent = `${Math.floor(x)}, ${Math.floor(y)}, ${Math.floor(z)}`;
   }
 
   setMana(fraction: number): void {

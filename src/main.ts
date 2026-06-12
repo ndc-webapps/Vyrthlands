@@ -34,6 +34,8 @@ import { GameMode } from './types';
 import { AuthStore, ApiError } from './auth';
 import { ServerApi, Presence, ServerInfo } from './net';
 import { RolePreviews } from './ui/rolePreview';
+import { sfx } from './sound';
+import { Particles } from './particles';
 
 // ---------- Renderer / scene ----------
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -59,6 +61,27 @@ const projectiles = new ProjectileManager(scene);
 const playerModel = new PlayerModel(scene);
 const remotes = new RemotePlayers(scene);
 const parkAnim = new ParkAnimator(scene); // moving theme-park ride parts
+const particles = new Particles(scene);
+
+// browsers gate audio behind a user gesture — unlock on the first one
+for (const ev of ['pointerdown', 'touchstart', 'keydown'] as const) {
+  document.addEventListener(ev, () => sfx.unlock(), { passive: true });
+}
+
+/** Representative color of a block (sampled from its tile art) for particles. */
+const blockColorCache = new Map<number, number>();
+function blockColor(id: number): number {
+  let c = blockColorCache.get(id);
+  if (c == null) {
+    const def = BLOCKS[id];
+    if (!def) return 0x9aa0aa;
+    const icon = atlas.icon(def.tiles.side, 8);
+    const d = icon.getContext('2d')!.getImageData(4, 4, 1, 1).data;
+    c = (d[0] << 16) | (d[1] << 8) | d[2];
+    blockColorCache.set(id, c);
+  }
+  return c;
+}
 // minecart shown under the player while riding player-built rails
 const cartMesh = new THREE.Mesh(
   new THREE.BoxGeometry(1.0, 0.5, 1.3),
@@ -142,6 +165,7 @@ invUI.onClose = () => {
   if (running) requestPointerLock();
 };
 invUI.onCraft = (recipe) => {
+  sfx.craft();
   hud.toast(`Crafted ${itemName(recipe.output.item)}`);
 };
 mobs.onPlayerHit = (dmg) => {
@@ -835,6 +859,16 @@ document.getElementById('btn-fullscreen')!.addEventListener('click', () => {
   else enterFullscreen();
 });
 
+const btnSound = document.getElementById('btn-sound')!;
+sfx.enabled = localStorage.getItem('vyrthlands_muted') !== '1';
+btnSound.textContent = `Sound: ${sfx.enabled ? 'On' : 'Off'}`;
+btnSound.addEventListener('click', () => {
+  sfx.enabled = !sfx.enabled;
+  localStorage.setItem('vyrthlands_muted', sfx.enabled ? '0' : '1');
+  btnSound.textContent = `Sound: ${sfx.enabled ? 'On' : 'Off'}`;
+  if (sfx.enabled) { sfx.unlock(); sfx.click(); }
+});
+
 btnSave.addEventListener('click', doSave);
 btnLoad.addEventListener('click', () => {
   if (hasSave()) {
@@ -938,6 +972,7 @@ function startGame(fresh: boolean, cloudSave: SaveData | null = null, cloudEdits
   worldRenderer = new WorldRenderer(world, scene, atlas, rd);
   environment.setup(worldType, rd);
   environment.setTime(save ? save.timeOfDay : 0.3);
+  environment.resetDay();
   camera.far = rd * 16 * 1.6;
   camera.updateProjectionMatrix();
 
@@ -1029,6 +1064,7 @@ function respawn(): void {
 /** Classic death screen: pause the world, show cause, wait for Respawn. */
 function die(cause: string): void {
   if (dead) return;
+  sfx.death();
   if (mount?.riding) dismountMount();
   dead = true;
   paused = true;
@@ -1216,6 +1252,7 @@ function interactWith(blockId: number, pos: { x: number; y: number; z: number })
 // ---------- theme park rides + player-built rail carts ----------
 const _ridePos = new THREE.Vector3();
 const _rideTan = new THREE.Vector3();
+const _spark = new THREE.Vector3();
 
 function beginPathRide(ride: ParkRide, cart: boolean): void {
   if (activeRide || !player) return;
@@ -1225,6 +1262,7 @@ function beginPathRide(ride: ParkRide, cart: boolean): void {
   player.keys.clear();
   mouseButtons.clear();
   cartMesh.visible = cart;
+  sfx.ride();
   hud.toast(`Riding ${ride.name}! (jump to hop off)`);
 }
 
@@ -1386,6 +1424,9 @@ function disposeMount(): void {
 }
 
 function tameMob(mob: Mob): void {
+  mob.center(_spark);
+  particles.burst(_spark.x, _spark.y, _spark.z, 0x8df06a, 24, 3);
+  sfx.tamed();
   mobs.removeById(mob.id);
   if (currentServer) presence.sendTame(mob.id, mob.def.name);
   createMount(mob.def, mob.pos.clone());
@@ -1398,6 +1439,7 @@ function mountUp(): void {
   mount.riding = true;
   player.mountSpeed = mount.def.rideSpeed ?? 1.8;
   player.eyeOffset = Math.min(1.2, Math.max(0.4, mount.def.scale * 0.55));
+  sfx.ride();
   hud.toast(`Riding the ${mount.def.name} — Shift / ▼ to dismount`);
 }
 
@@ -1510,6 +1552,7 @@ function tryEat(): boolean {
     hud.toast(`Ate ${def.name}`);
   }
   inventory.consumeSelected();
+  sfx.eat();
   eatCooldown = 0.8;
   viewModel.triggerSwing();
   return true;
@@ -1527,6 +1570,7 @@ function tryPlace(): void {
   const existing = world.getBlock(px, py, pz);
   if (existing !== Block.Air && existing !== Block.Water) return;
   setBlockSynced(px, py, pz, slot.item);
+  sfx.place();
   inventory.consumeSelected();
   viewModel.triggerSwing();
 }
@@ -1560,6 +1604,7 @@ function tryAttackMob(aimOrigin?: THREE.Vector3, aimDir?: THREE.Vector3): boolea
       // friends see the shot fly (cosmetic — damage resolves on my screen)
       presence.sendShot(eyePos.x, eyePos.y, eyePos.z, lookDir.x, lookDir.y, lookDir.z, speed, 0, color, false);
     }
+    sfx.skill();
     meleeCooldown = kind === 'gun' ? 0.45 : 0.65;
   } else {
     const mob = mobs.rayPick(eyePos, lookDir, kind === 'hand' ? 2.3 : 3.2);
@@ -1575,6 +1620,9 @@ function tryAttackMob(aimOrigin?: THREE.Vector3, aimDir?: THREE.Vector3): boolea
       }
     }
     mobs.damage(mob, dmg, lookDir);
+    mob.center(_spark);
+    particles.burst(_spark.x, _spark.y, _spark.z, 0xff5a4a, 8, 2.6);
+    sfx.hitMob();
     meleeCooldown = kind === 'sword' ? 0.42 : 0.55;
   }
   viewModel.triggerSwing();
@@ -1614,6 +1662,7 @@ function applyDamage(dmg: number): void {
   reduced *= 1 - (inventory?.totalArmor() ?? 0);
   health = Math.max(0, health - reduced / stats.maxHealth);
   hud.setHealth(health);
+  if (health > 0) sfx.hurt();
   if (mode === 'survival' && health <= 0) die('You were slain');
 }
 
@@ -1638,6 +1687,9 @@ function castSkill(index: number): void {
     toast: (msg) => hud.toast(msg),
   };
   if (!skill.cast(ctx)) return;
+  sfx.skill();
+  player.eyePosition(_spark);
+  particles.burst(_spark.x, _spark.y - 0.4, _spark.z, 0x7df0ff, 16, 2.4);
   mana = Math.max(0, mana - cost);
   skillCooldowns[index] = skill.cooldown;
   hud.setMana(mana);
@@ -1646,6 +1698,8 @@ function castSkill(index: number): void {
 
 function finishBreak(x: number, y: number, z: number, blockId: number): void {
   if (!world || !inventory) return;
+  particles.burst(x + 0.5, y + 0.5, z + 0.5, blockColor(blockId), 14, 3.5);
+  sfx.breakBlock();
   setBlockSynced(x, y, z, Block.Air);
   if (mode === 'survival') {
     const held = inventory.selectedSlot();
@@ -1673,6 +1727,8 @@ function updateInteraction(dt: number): void {
     const blockId = world.getBlock(x, y, z);
     if (mode === 'creative') {
       if (breakCooldown <= 0 && BLOCKS[blockId]) {
+        particles.burst(x + 0.5, y + 0.5, z + 0.5, blockColor(blockId), 12, 3.5);
+        sfx.breakBlock();
         setBlockSynced(x, y, z, Block.Air);
         viewModel.triggerSwing();
         breakCooldown = CREATIVE_BREAK_REPEAT;
@@ -2077,10 +2133,13 @@ function frame(now: number): void {
 
   if (!paused && !uiOpen && !activeRide) updateInteraction(dt);
 
+  particles.update(dt);
+  hud.setCoords(player.position.x, player.position.y, player.position.z);
+
   clockT += dt;
   if (clockT > 0.5) {
     clockT = 0;
-    hud.setTimeOfDay(environment.getTime(), environment.isNight());
+    hud.setTimeOfDay(environment.getTime(), environment.isNight(), environment.getDay());
   }
   if (isTouch) {
     touchControls.classList.toggle('hidden', !running || paused || uiOpen);
