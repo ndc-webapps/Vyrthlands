@@ -1369,6 +1369,12 @@ button.loading { opacity: 0.6; pointer-events: none; }
   background: rgba(255,208,112,0.08);
 }
 .server-card .sc-copy:hover { background: rgba(255,208,112,0.2); }
+.sens-row { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.sens-row label { font-size: 13px; color: var(--text-dim, rgba(232,236,244,0.7)); display: flex; justify-content: space-between; }
+.sens-row b { color: #7df0ff; }
+.sens-row input[type="range"] {
+  width: 100%; accent-color: #5eead4; cursor: pointer; min-height: 28px;
+}
 #pause-invite {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   font-size: 13px; color: #ffd070; letter-spacing: 1px;
