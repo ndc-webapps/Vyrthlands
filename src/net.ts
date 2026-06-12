@@ -87,6 +87,7 @@ export class Presence {
   onMobAtk: ((target: string, dmg: number) => void) | null = null;
   onShot: ((username: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, speed: number, dmg: number, color: number, hostile: boolean) => void) | null = null;
   onSleep: ((username: string) => void) | null = null;
+  onTame: ((username: string, id: number, mobName: string) => void) | null = null;
 
   connect(token: string, serverId: string): void {
     this.disconnect();
@@ -116,6 +117,7 @@ export class Presence {
         if (msg.type === 'mobatk') this.onMobAtk?.(msg.target, msg.dmg);
         if (msg.type === 'shot') this.onShot?.(msg.username, msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.speed, msg.dmg, msg.color, !!msg.hostile);
         if (msg.type === 'sleep') this.onSleep?.(msg.username);
+        if (msg.type === 'tame') this.onTame?.(msg.username, msg.id, msg.mob ?? '');
       } catch { /* ignore */ }
     };
   }
@@ -154,6 +156,11 @@ export class Presence {
 
   sendSleep(): void {
     if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'sleep' }));
+  }
+
+  /** I tamed mob `id` — everyone removes it from the wild. */
+  sendTame(id: number, mobName: string): void {
+    if (this.ws?.readyState === 1) this.ws.send(JSON.stringify({ type: 'tame', id, mob: mobName }));
   }
 
   disconnect(): void {

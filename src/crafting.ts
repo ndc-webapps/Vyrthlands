@@ -42,6 +42,7 @@ export const RECIPES: Recipe[] = [
   r('staff', 'workbench', [{ item: Item.CrystalShard, count: 1 }, { item: Item.Stick, count: 2 }], { item: Item.Staff, count: 1 }, 0, 200),
   r('blaster', 'workbench', [{ item: Item.IronIngot, count: 2 }, { item: Item.CrystalShard, count: 1 }], { item: Item.Blaster, count: 1 }, 0, 200),
   r('smelter', 'workbench', [{ item: Block.Stone, count: 8 }], { item: Block.Smelter, count: 1 }),
+  r('rails', 'workbench', [{ item: Item.IronIngot, count: 3 }, { item: Item.Stick, count: 2 }], { item: Block.Rail, count: 8 }),
   // armor (workbench)
   r('hide-cap', 'workbench', [{ item: Item.PrimalHide, count: 5 }], { item: Item.LeatherCap, count: 1 }),
   r('hide-tunic', 'workbench', [{ item: Item.PrimalHide, count: 8 }], { item: Item.LeatherTunic, count: 1 }),

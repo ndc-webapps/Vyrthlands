@@ -20,6 +20,8 @@ export interface SaveData {
   spawn: { x: number; z: number } | null;
   timeOfDay: number;
   inventory: unknown;
+  /** Enemy-def id of the player's tamed companion, if any. */
+  mountId?: string | null;
 }
 
 export interface SaveExtras {
@@ -30,6 +32,7 @@ export interface SaveExtras {
   spawn: { x: number; z: number } | null;
   timeOfDay: number;
   inventory: unknown;
+  mountId?: string | null;
 }
 
 /** Build the full save payload (used for both localStorage and cloud saves). */
@@ -59,6 +62,7 @@ export function buildSaveData(
     spawn: extras.spawn,
     timeOfDay: extras.timeOfDay,
     inventory: extras.inventory,
+    mountId: extras.mountId ?? null,
   };
 }
 
