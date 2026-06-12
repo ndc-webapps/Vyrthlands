@@ -256,7 +256,22 @@ function showServerScreen(): void {
   landingPage.classList.add('hidden');
   titleScreen.classList.add('hidden');
   serverScreen.classList.remove('hidden');
+  updateStorageWarning();
   void renderServers();
+}
+
+/** Loud banner when the backend runs on its temporary sqlite fallback in
+ *  production — accounts/saves there are wiped on every redeploy. */
+function updateStorageWarning(): void {
+  const el = document.getElementById('storage-warn')!;
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+  const bad = auth.storage === 'sqlite' && !local;
+  el.classList.toggle('hidden', !bad);
+  if (bad) {
+    el.textContent = '⚠ The game server is NOT connected to your Neon database (temporary storage in use — '
+      + 'accounts and saves will be wiped on the next redeploy). On Railway, open the backend service → '
+      + 'Variables and make sure DATABASE_URL is set there, then redeploy. Details: /api/_debug';
+  }
 }
 
 // ---------- auth modal ----------
@@ -338,7 +353,7 @@ loginGuest.addEventListener('click', () => {
   creatingServer = false;
   showWorldSelect();
 });
-accountLogout.addEventListener('click', () => {
+function doLogout(): void {
   void auth.logout().then(() => {
     currentServer = null;
     presence.disconnect();
@@ -346,7 +361,9 @@ accountLogout.addEventListener('click', () => {
     showLanding();
     hud.toast('Logged out');
   });
-});
+}
+accountLogout.addEventListener('click', doLogout);
+document.getElementById('btn-server-logout')!.addEventListener('click', doLogout);
 
 function enterFlow(): void {
   if (auth.loggedIn) showServerScreen();
