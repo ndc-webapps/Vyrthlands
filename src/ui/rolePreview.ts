@@ -10,8 +10,8 @@ import { buildAvatar, animateAvatar, AvatarRig } from '../playerModel';
  * extra GL context.
  */
 
-const W = 96;
-const H = 128;
+const W = 132;
+const H = 176;
 
 interface Target {
   role: RoleId;

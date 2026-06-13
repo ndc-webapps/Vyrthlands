@@ -35,64 +35,39 @@
     </header>
 
     <main class="landing-scroll">
+      <div class="landing-aurora" aria-hidden="true">
+        <span class="aur a1"></span><span class="aur a2"></span><span class="aur a3"></span>
+      </div>
+
       <section class="hero" id="top-hero">
         <div class="hero-inner">
           <div class="hero-copy">
-            <span class="hero-badge">Voxel Survival RPG · Play with friends</span>
+            <span class="hero-badge"><i class="badge-dot"></i>Free · Multiplayer · Plays in your browser</span>
             <h1 class="hero-title">Vyrthlands</h1>
-            <p class="hero-subtitle">Fourteen realms. Five roles. One crystal-lit sky.</p>
-            <p class="hero-text">Mine, build, and survive cinematic voxel worlds with your friends — from prehistoric jungles to neon cities, each realm with its own enemies, loot, and dangerous nights.</p>
+            <p class="hero-subtitle">Sixteen realms. Five roles. One crystal-lit sky.</p>
+            <p class="hero-text">Mine, build, tame, and survive cinematic voxel worlds with your friends — from prehistoric jungles to neon cities to a living theme park, every realm with its own creatures, loot, and dangerous nights.</p>
             <div class="hero-actions">
-              <button id="btn-start-adventure" class="primary hero-primary">Start Adventure</button>
+              <button id="btn-start-adventure" class="primary hero-primary">Start Adventure<span class="btn-arrow">→</span></button>
               <button id="btn-explore-realms" class="secondary">Explore Realms</button>
             </div>
             <div class="hero-stats" aria-label="Game stats">
-              <div class="stat"><strong>14</strong><span>Themed realms</span></div>
+              <div class="stat"><strong>16</strong><span>Themed realms</span></div>
               <div class="stat"><strong>80+</strong><span>Unique enemies</span></div>
-              <div class="stat"><strong>5</strong><span>Combat roles</span></div>
+              <div class="stat"><strong>21</strong><span>Park rides</span></div>
               <div class="stat"><strong>∞</strong><span>Worlds to seed</span></div>
             </div>
           </div>
 
-          <div class="hero-scene" aria-hidden="true">
-            <div class="scene-backdrop"></div>
-            <div class="scene-glow"></div>
-            <div class="scene-sun"></div>
-            <div class="scene-mountains"></div>
-            <div class="scene-fog fog-back"></div>
-            <div class="scene-island">
-              <div class="island-layer grass"></div>
-              <div class="island-layer dirt"></div>
-              <div class="island-layer stone"></div>
-              <div class="island-detail cave"></div>
-              <div class="island-detail crystal-cluster">
-                <span></span><span></span><span></span>
-              </div>
-              <div class="island-detail tree tree-left"></div>
-              <div class="island-detail tree tree-right"></div>
-              <div class="island-detail torch"></div>
-            </div>
-            <div class="floating-rock rock-one"></div>
-            <div class="floating-rock rock-two"></div>
-            <div class="floating-rock rock-three"></div>
-            <div class="scene-block scene-block-one"></div>
-            <div class="scene-block scene-block-two"></div>
-            <div class="scene-block scene-block-three"></div>
-            <div class="realm-terminal">
-              <span>Featured Realm</span>
-              <strong>Sky Islands</strong>
-              <small>Fall danger / Sky Crystal / wind spirits</small>
-            </div>
-            <div class="crystal-readout">
-              <span>CRYSTAL SIGNAL</span>
-              <strong>98%</strong>
-            </div>
-            <div class="scene-fog fog-front"></div>
-            <div class="scene-particles">
-              <span></span><span></span><span></span><span></span><span></span>
+          <div class="hero-stage" aria-hidden="true">
+            <canvas id="hero-canvas"></canvas>
+            <div class="stage-halo"></div>
+            <div class="stage-caption">
+              <span>Live render</span>
+              <strong>Sky Island · Natural Realm</strong>
             </div>
           </div>
         </div>
+        <div class="scroll-cue" aria-hidden="true"><span></span></div>
       </section>
 
       <section id="crafting" class="landing-section landing-feature-section">
@@ -105,34 +80,34 @@
         </div>
         <div class="feature-grid">
           <article class="feature-card">
-            <div class="feature-icon">MW</div>
-            <h3>Massive Worlds</h3>
-            <p>Discover sprawling islands, hidden caves, and shifting terrain in every realm.</p>
+            <div class="feature-icon">PF</div>
+            <h3>Play With Friends</h3>
+            <p>Host a realm, share a 6-letter invite code, and build together — live blocks, chat, shared mobs, one synced sky.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">TR</div>
+            <h3>Tame &amp; Ride</h3>
+            <p>Every realm hides a rare creature you can feed, tame, and ride — dinosaurs, wolves, even a lava beast.</p>
           </article>
           <article class="feature-card">
             <div class="feature-icon">SC</div>
             <h3>Survival Crafting</h3>
-            <p>Gather, craft, and refine tools to survive the night and build legendary bases.</p>
+            <p>Forage, hunt, smelt, and forge your way through six armor tiers — from copper scraps to mythic plate.</p>
           </article>
           <article class="feature-card">
-            <div class="feature-icon">RP</div>
-            <h3>RPG Roles</h3>
-            <p>Play as Assassin, Wizard, Swordsman, Healer, or Gunner with unique strengths.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">TR</div>
-            <h3>Themed Realms</h3>
-            <p>Enter haunted villages, prehistoric wilds, cyberpunk ruins, and more.</p>
+            <div class="feature-icon">TP</div>
+            <h3>Theme Park Realm</h3>
+            <p>21 rideable attractions — a looping coaster, water slides, the Sky Wheel — plus rails to build your own.</p>
           </article>
           <article class="feature-card">
             <div class="feature-icon">DN</div>
             <h3>Dangerous Nights</h3>
-            <p>Nightfall brings stronger foes, eerie glow, and rare crystalline rewards.</p>
+            <p>Nightfall brings stronger foes, eerie glow, and rare crystalline rewards. Sleep in a bed to skip it — together.</p>
           </article>
           <article class="feature-card">
             <div class="feature-icon">BA</div>
             <h3>Build Anything</h3>
-            <p>Shape the world with voxel construction, defenses, and glowing architecture.</p>
+            <p>Shape the world block by block: bases, defenses, glowing towers, and cart-rail coasters of your own design.</p>
           </article>
         </div>
       </section>
@@ -146,41 +121,47 @@
           </div>
         </div>
         <div class="world-grid">
-          <article class="world-card prehistoric">
+          <article class="world-card" style="--wc:#5cb85a">
+            <div class="wc-art" style="--g1:#173a22;--g2:#0a1410"><span class="wc-sigil">🦖</span></div>
             <span class="card-label">Pre Historic</span>
             <h3>Ancient wildlands</h3>
-            <p>Roaming dinosaurs, volcanic ruins, and lethal night predators.</p>
-            <div class="card-meta"><small>Enemies: Raptors, Predators</small><small>Resource: Amber Crystal</small><small>Danger: High</small></div>
+            <p>Roaming dinosaurs you can tame and ride, volcanic ruins, and lethal night predators.</p>
+            <div class="card-meta"><small>Raptors · Predators</small><small>Amber Resin</small><small>Danger: High</small></div>
           </article>
-          <article class="world-card zombie">
+          <article class="world-card" style="--wc:#9ad06a">
+            <div class="wc-art" style="--g1:#26341c;--g2:#0d120a"><span class="wc-sigil">🧟</span></div>
             <span class="card-label">Zombie World</span>
             <h3>Ruined suburbs</h3>
-            <p>Collapsed cities and infected hordes that stalk every shadow.</p>
-            <div class="card-meta"><small>Enemies: Walkers, Runners</small><small>Resource: Med Scrap</small><small>Danger: High</small></div>
+            <p>Collapsed cities and infected hordes that stalk every shadow after dark.</p>
+            <div class="card-meta"><small>Walkers · Runners</small><small>Med Scrap</small><small>Danger: High</small></div>
           </article>
-          <article class="world-card battlefront">
-            <span class="card-label">Battlefront Ruins</span>
-            <h3>War-torn trenches</h3>
-            <p>Broken bunkers, smoke, and tactical danger around every corner.</p>
-            <div class="card-meta"><small>Enemies: Soldiers, Scouts</small><small>Resource: Fuel Cell</small><small>Danger: Medium</small></div>
-          </article>
-          <article class="world-card medieval">
+          <article class="world-card" style="--wc:#d8a840">
+            <div class="wc-art" style="--g1:#2c2a18;--g2:#12100a"><span class="wc-sigil">🏰</span></div>
             <span class="card-label">Medieval Kingdom</span>
             <h3>Castle forests</h3>
-            <p>Magic ruins, goblins, and knightly threats in ancient ruins.</p>
-            <div class="card-meta"><small>Enemies: Goblins, Skeletons</small><small>Resource: Magic Crystal</small><small>Danger: Medium</small></div>
+            <p>Castles, goblin packs, tameable grey wolves, and skeleton knights at night.</p>
+            <div class="card-meta"><small>Goblins · Skeletons</small><small>Magic Crystal</small><small>Danger: Medium</small></div>
           </article>
-          <article class="world-card cyberpunk">
+          <article class="world-card" style="--wc:#40e0f0">
+            <div class="wc-art" style="--g1:#102a36;--g2:#080e16"><span class="wc-sigil">🌆</span></div>
             <span class="card-label">Cyberpunk City</span>
             <h3>Neon rain</h3>
-            <p>High-tech towers, drones, and synthetic enemies under neon skies.</p>
-            <div class="card-meta"><small>Enemies: Drones, Robots</small><small>Resource: Energy Core</small><small>Danger: High</small></div>
+            <p>High-tech towers, patrol drones, and synthetic enemies under neon skies.</p>
+            <div class="card-meta"><small>Drones · Robots</small><small>Energy Core</small><small>Danger: High</small></div>
           </article>
-          <article class="world-card haunted">
-            <span class="card-label">Haunted Village</span>
-            <h3>Cursed woods</h3>
-            <p>Foggy hamlets, witches, and restless spirits that haunt every lane.</p>
-            <div class="card-meta"><small>Enemies: Witches, Ghosts</small><small>Resource: Soul Shard</small><small>Danger: High</small></div>
+          <article class="world-card" style="--wc:#8fd0ff">
+            <div class="wc-art" style="--g1:#16263e;--g2:#0a0e1a"><span class="wc-sigil">☁️</span></div>
+            <span class="card-label">Sky Islands</span>
+            <h3>Floating archipelago</h3>
+            <p>Cloud ruins, fall danger, wind spirits — and a flying Sky Beast to tame.</p>
+            <div class="card-meta"><small>Wind Spirits · Sky Beasts</small><small>Sky Crystal</small><small>Danger: Medium</small></div>
+          </article>
+          <article class="world-card" style="--wc:#ff7aa0">
+            <div class="wc-art" style="--g1:#33182a;--g2:#120810"><span class="wc-sigil">🎡</span></div>
+            <span class="card-label">Theme Park</span>
+            <h3>Festival grounds</h3>
+            <p>A peaceful realm of 21 living rides — coaster loops, water slides, the Sky Wheel.</p>
+            <div class="card-meta"><small>No enemies</small><small>21 attractions</small><small>Danger: None</small></div>
           </article>
         </div>
       </section>
@@ -194,30 +175,35 @@
           </div>
         </div>
         <div class="role-grid">
-          <article class="role-card assassin">
+          <article class="role-card assassin" data-role="assassin">
+            <div class="role-stage"><canvas class="role-card-canvas"></canvas></div>
             <span class="role-name">Assassin</span>
             <p>Strike from shadow with speed and critical damage.</p>
-            <small>Weapon: Daggers / Passive: Shadow Step</small>
+            <small>Daggers · Shadow Step</small>
           </article>
-          <article class="role-card wizard">
+          <article class="role-card wizard" data-role="wizard">
+            <div class="role-stage"><canvas class="role-card-canvas"></canvas></div>
             <span class="role-name">Wizard</span>
             <p>Wield arcane crystals to blast enemies and control the field.</p>
-            <small>Weapon: Staff / Passive: Mana Flow</small>
+            <small>Staff · Mana Flow</small>
           </article>
-          <article class="role-card swordsman">
+          <article class="role-card swordsman" data-role="swordsman">
+            <div class="role-stage"><canvas class="role-card-canvas"></canvas></div>
             <span class="role-name">Swordsman</span>
             <p>Balanced fighter built for powerful melee combat and endurance.</p>
-            <small>Weapon: Sword / Passive: Fortitude</small>
+            <small>Sword · Fortitude</small>
           </article>
-          <article class="role-card healer">
+          <article class="role-card healer" data-role="healer">
+            <div class="role-stage"><canvas class="role-card-canvas"></canvas></div>
             <span class="role-name">Support Healer</span>
             <p>Restore allies and outlast the darkest hours.</p>
-            <small>Weapon: Talisman / Passive: Recovery</small>
+            <small>Talisman · Recovery</small>
           </article>
-          <article class="role-card gunner">
+          <article class="role-card gunner" data-role="gunner">
+            <div class="role-stage"><canvas class="role-card-canvas"></canvas></div>
             <span class="role-name">Gunner</span>
             <p>Ranged specialist with heavy firepower and tactical precision.</p>
-            <small>Weapon: Rifle / Passive: Quick Draw</small>
+            <small>Rifle · Quick Draw</small>
           </article>
         </div>
       </section>
@@ -225,11 +211,12 @@
       <section id="roadmap" class="landing-section landing-cta-section">
         <div class="cta-panel">
           <div>
+            <span class="section-eyebrow">No download · No install</span>
             <h2>Ready to enter Vyrthlands?</h2>
-            <p>Start your cinematic survival journey through crystal-lit realms and dangerous nights.</p>
+            <p>Create a free account, host a realm, and send your friends one invite code. Crystal-lit skies and dangerous nights await.</p>
           </div>
           <div class="cta-buttons">
-            <button id="btn-start-adventure-cta" class="primary">Start Adventure</button>
+            <button id="btn-start-adventure-cta" class="primary">Start Adventure<span class="btn-arrow">→</span></button>
             <button id="btn-landing-continue" class="secondary hidden">Continue World</button>
           </div>
         </div>
