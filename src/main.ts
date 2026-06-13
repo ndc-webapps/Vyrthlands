@@ -874,17 +874,61 @@ sensSlider.addEventListener('input', () => {
   if (player) player.lookSens = lookSens;
 });
 
-function enterFullscreen(): void {
-  if (document.fullscreenElement) return;
-  document.documentElement.requestFullscreen?.().catch(() => { /* iPhone Safari: unsupported */ });
+// Cross-browser fullscreen (iPad Safari uses the webkit-prefixed API).
+const fsDoc = document as any;
+const fsEl = document.documentElement as any;
+function isFullscreen(): boolean {
+  return !!(document.fullscreenElement || fsDoc.webkitFullscreenElement);
 }
-function exitFullscreen(): void {
-  if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+function rawEnterFs(): void {
+  if (isFullscreen()) return;
+  const fn = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
+  if (!fn) return; // iPhone Safari: no element fullscreen — home-screen install instead
+  try { const r = fn.call(fsEl); if (r && r.catch) r.catch(() => {}); } catch { /* ignore */ }
 }
+function rawExitFs(): void {
+  const fn = document.exitFullscreen || fsDoc.webkitExitFullscreen;
+  if (isFullscreen() && fn) { try { const r = fn.call(document); if (r && r.catch) r.catch(() => {}); } catch { /* ignore */ } }
+}
+
+/** Whether the game currently *wants* to be fullscreen (set on world entry,
+ *  cleared on quit / manual exit). Drives the self-heal below. */
+let fullscreenIntent = false;
+function enterFullscreen(): void { fullscreenIntent = true; rawEnterFs(); }
+function exitFullscreen(): void { fullscreenIntent = false; rawExitFs(); }
+
 document.getElementById('btn-fullscreen')!.addEventListener('click', () => {
-  if (document.fullscreenElement) exitFullscreen();
+  if (isFullscreen()) exitFullscreen();
   else enterFullscreen();
 });
+
+// iPad/Android system swipe gestures (pull-to-refresh, edge swipe) can drop
+// fullscreen mid-game. If the game still wants it, re-enter on the next tap —
+// the browser only allows re-entering fullscreen from a user gesture. This
+// keeps play immersive: it feels like a game app, not a browser tab.
+let reFsArmed = false;
+function onFsChange(): void {
+  reFsArmed = fullscreenIntent && running && isTouch && !isFullscreen();
+}
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
+function reFsOnGesture(): void {
+  if (reFsArmed && fullscreenIntent && running && !isFullscreen()) {
+    reFsArmed = false;
+    rawEnterFs();
+  }
+}
+document.addEventListener('touchend', reFsOnGesture, { capture: true, passive: true });
+document.addEventListener('pointerup', reFsOnGesture, { capture: true, passive: true });
+
+// Block the browser's pull-to-refresh / overscroll while playing on touch so
+// a downward drag can't bounce the page (and drop fullscreen). Touch controls
+// already preventDefault on their own zones; this covers stray gestures.
+document.addEventListener('touchmove', (e) => {
+  if (running && isTouch && !uiOpen && !paused) {
+    if (e.cancelable) e.preventDefault();
+  }
+}, { passive: false });
 
 const btnSound = document.getElementById('btn-sound')!;
 sfx.enabled = localStorage.getItem('vyrthlands_muted') !== '1';

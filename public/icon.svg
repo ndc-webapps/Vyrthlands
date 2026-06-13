@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="v" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7df0ff"/>
+      <stop offset="0.55" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#8aa8ff"/>
+    </linearGradient>
+    <radialGradient id="cr" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#dffcff"/>
+      <stop offset="0.6" stop-color="#7df0ff"/>
+      <stop offset="1" stop-color="#3bb8e8"/>
+    </radialGradient>
+    <radialGradient id="bg" cx="0.5" cy="0.35" r="0.85">
+      <stop offset="0" stop-color="#0e2230"/>
+      <stop offset="1" stop-color="#081019"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="13.5" fill="none" stroke="#5eead4" stroke-opacity="0.25"/>
+  <!-- ring -->
+  <circle cx="32" cy="35" r="19" fill="none" stroke="#5eead4" stroke-opacity="0.55" stroke-width="2"/>
+  <!-- voxel base hint -->
+  <g fill="#5eead4" fill-opacity="0.5">
+    <rect x="24" y="49" width="4" height="4"/><rect x="30" y="51" width="4" height="4"/>
+    <rect x="36" y="49" width="4" height="4"/><rect x="28" y="46" width="4" height="4"/>
+  </g>
+  <!-- crystal -->
+  <path d="M32 5 L37 13 L32 21 L27 13 Z" fill="url(#cr)"/>
+  <path d="M32 5 L32 21" stroke="#dffcff" stroke-opacity="0.7" stroke-width="1"/>
+  <!-- V -->
+  <path d="M20 22 L32 45 L44 22" fill="none" stroke="url(#v)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
