@@ -34,6 +34,7 @@ import { GameMode } from './types';
 import { AuthStore, ApiError } from './auth';
 import { ServerApi, Presence, ServerInfo } from './net';
 import { RolePreviews } from './ui/rolePreview';
+import { HeroScene } from './ui/heroScene';
 import { sfx } from './sound';
 import { Particles } from './particles';
 import { initAnalytics, trackEvent } from './analytics';
@@ -307,6 +308,18 @@ function attachRolePreviews(rowId: string): void {
 }
 attachRolePreviews('role-row');       // create world / create server screen
 attachRolePreviews('role-pick-row');  // join-with-invite-code role picker
+
+// animated character on each landing-page role card
+document.querySelectorAll<HTMLElement>('.role-card[data-role]').forEach((card) => {
+  const r = card.dataset.role as RoleId | undefined;
+  const canvas = card.querySelector<HTMLCanvasElement>('.role-card-canvas');
+  if (r && ROLES[r] && canvas) rolePreviews.attach(r, canvas);
+});
+
+// live 3D voxel-island diorama in the landing hero
+const heroCanvas = document.getElementById('hero-canvas') as HTMLCanvasElement | null;
+const heroScene = heroCanvas ? new HeroScene(heroCanvas) : null;
+window.addEventListener('resize', () => heroScene?.resize());
 
 if (hasSave()) {
   btnContinue.classList.remove('hidden');
@@ -2044,6 +2057,11 @@ function frame(now: number): void {
 
   // animate the role-button avatar previews while their menus are open
   if (!titleScreen.classList.contains('hidden') || !roleModal.classList.contains('hidden')) {
+    rolePreviews.update(dt);
+  }
+  // landing page: live hero diorama + role-card characters
+  if (!landingPage.classList.contains('hidden')) {
+    heroScene?.update(dt);
     rolePreviews.update(dt);
   }
 
