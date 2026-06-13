@@ -35,6 +35,7 @@ import { AuthStore, ApiError } from './auth';
 import { ServerApi, Presence, ServerInfo } from './net';
 import { RolePreviews } from './ui/rolePreview';
 import { HeroScene } from './ui/heroScene';
+import { WorldPreviews } from './ui/worldPreview';
 import { sfx } from './sound';
 import { Particles } from './particles';
 import { initAnalytics, trackEvent } from './analytics';
@@ -320,6 +321,14 @@ document.querySelectorAll<HTMLElement>('.role-card[data-role]').forEach((card) =
 const heroCanvas = document.getElementById('hero-canvas') as HTMLCanvasElement | null;
 const heroScene = heroCanvas ? new HeroScene(heroCanvas) : null;
 window.addEventListener('resize', () => heroScene?.resize());
+
+// live 3D voxel mini-scene on each landing world card
+const worldPreviews = new WorldPreviews();
+document.querySelectorAll<HTMLElement>('.world-card[data-world]').forEach((card) => {
+  const w = card.dataset.world;
+  const canvas = card.querySelector<HTMLCanvasElement>('.wc-canvas');
+  if (w && canvas) worldPreviews.attach(w, canvas);
+});
 
 if (hasSave()) {
   btnContinue.classList.remove('hidden');
@@ -2059,10 +2068,11 @@ function frame(now: number): void {
   if (!titleScreen.classList.contains('hidden') || !roleModal.classList.contains('hidden')) {
     rolePreviews.update(dt);
   }
-  // landing page: live hero diorama + role-card characters
+  // landing page: live hero diorama + role-card characters + world scenes
   if (!landingPage.classList.contains('hidden')) {
     heroScene?.update(dt);
     rolePreviews.update(dt);
+    worldPreviews.update(dt);
   }
 
   if (!running || !world || !player || !worldRenderer) {
