@@ -1828,11 +1828,10 @@ body.touch-mode #controls-help { display: none; }
 #landing-page .wc-art {
   position: relative;
   margin: -1px -1px 16px;
-  height: 110px;
-  display: grid;
-  place-items: center;
+  height: 132px;
+  overflow: hidden;
   background:
-    radial-gradient(ellipse 80% 90% at 50% 110%, var(--g1, #16263e), var(--g2, #0a0e1a));
+    radial-gradient(ellipse 80% 90% at 50% 115%, var(--g1, #16263e), var(--g2, #0a0e1a));
   border-bottom: 1px solid var(--hairline);
 }
 #landing-page .wc-art::after {
@@ -1842,13 +1841,18 @@ body.touch-mode #controls-help { display: none; }
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--wc, #5eead4), transparent);
   opacity: 0.7;
+  z-index: 2;
 }
-#landing-page .wc-sigil {
-  font-size: 40px;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.6));
-  transition: transform 0.25s ease;
+#landing-page .wc-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5));
+  transition: transform 0.3s ease;
 }
-#landing-page .world-card:hover .wc-sigil { transform: translateY(-4px) scale(1.12); }
+#landing-page .world-card:hover .wc-canvas { transform: scale(1.06); }
 #landing-page .world-card .card-label { color: var(--wc, #5eead4); }
 #landing-page .world-card::before { display: none; }
 
