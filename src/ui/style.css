@@ -1300,6 +1300,22 @@ button.loading { opacity: 0.6; pointer-events: none; }
   font-size: 12px; color: #5eead4; font-weight: 700; white-space: nowrap;
 }
 .server-empty { color: rgba(232,236,244,0.55); text-align: center; padding: 30px 0; }
+.server-section-title {
+  margin: 26px 0 2px; font-size: 20px; font-weight: 800; color: #fff;
+}
+.server-section-title span { color: #5eead4; }
+.sc-tag {
+  display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: 5px; margin-right: 4px;
+  color: rgba(232,236,244,0.7); background: rgba(255,255,255,0.08);
+}
+.sc-tag.open { color: #04100f; background: #5eead4; }
+.server-card.lobby {
+  border-color: rgba(94,234,212,0.5);
+  background: linear-gradient(180deg, rgba(94,234,212,0.1), rgba(255,255,255,0.04));
+}
+.server-card .sc-join { min-width: 72px; }
+.server-card .sc-join:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.4); }
 @media (max-width: 560px) {
   .server-toolbar { flex-direction: column; }
   .server-card { flex-direction: column; align-items: flex-start; }

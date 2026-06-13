@@ -296,6 +296,18 @@ wireOptionRow('role-row', 'role', (v) => {
   roleDesc.textContent = ROLES[role].desc;
 });
 
+// open vs private when hosting a cloud server
+let newWorldVisibility: 'open' | 'private' = 'private';
+const visibilityDesc = document.getElementById('visibility-desc');
+wireOptionRow('visibility-row', 'vis', (v) => {
+  newWorldVisibility = v === 'open' ? 'open' : 'private';
+  if (visibilityDesc) {
+    visibilityDesc.textContent = newWorldVisibility === 'open'
+      ? 'Listed publicly — anyone can hop in until it fills up (capacity scales with world size).'
+      : 'Only people you give the invite code to can join. Capacity scales with world size.';
+  }
+});
+
 // live animated avatar previews inside every role button
 const rolePreviews = new RolePreviews();
 function attachRolePreviews(rowId: string): void {
@@ -363,6 +375,7 @@ function showServerScreen(): void {
   serverScreen.classList.remove('hidden');
   updateStorageWarning();
   void renderServers();
+  void renderPublic();
 }
 
 /** Loud banner when the backend runs on its temporary sqlite fallback in
@@ -545,10 +558,11 @@ async function renderServers(): Promise<void> {
       const card = document.createElement('div');
       card.className = 'server-card';
       const when = new Date(s.lastPlayed).toLocaleDateString();
+      const tag = s.visibility === 'open' ? '<span class="sc-tag open">Open</span>' : '<span class="sc-tag">Private</span>';
       card.innerHTML = `
         <div class="sc-info">
           <span class="sc-name"></span>
-          <span class="sc-meta">${s.worldType} · ${s.mode} · ${s.members.length}/${s.maxPlayers} players · last played ${when}</span>
+          <span class="sc-meta">${tag} ${s.worldType} · ${s.mode} · ${s.members.length}/${s.maxPlayers} players · last played ${when}</span>
           ${s.inviteCode ? `<span class="sc-code">Invite: <b>${s.inviteCode}</b><button class="sc-copy" title="Copy invite code">Copy</button></span>` : ''}
         </div>
         <div class="sc-actions">
@@ -564,6 +578,57 @@ async function renderServers(): Promise<void> {
     serverList.innerHTML = '';
     serverErrorMsg(e instanceof ApiError ? e.message : 'Failed to load servers');
   }
+}
+
+/** Public open worlds anyone can hop into (lobby pinned first). */
+async function renderPublic(): Promise<void> {
+  const publicList = document.getElementById('public-list')!;
+  publicList.innerHTML = '<p class="server-empty">Loading public worlds…</p>';
+  try {
+    const servers = await serverApi.listPublic();
+    publicList.innerHTML = '';
+    if (servers.length === 0) {
+      publicList.innerHTML = '<p class="server-empty">No open worlds right now — create one and check "Open"!</p>';
+      return;
+    }
+    for (const s of servers) {
+      const full = s.online >= s.maxPlayers;
+      const isLobby = s.id === 'public-lobby';
+      const card = document.createElement('div');
+      card.className = 'server-card' + (isLobby ? ' lobby' : '');
+      card.innerHTML = `
+        <div class="sc-info">
+          <span class="sc-name"></span>
+          <span class="sc-meta">${isLobby ? '🎡 Hang out & meet players · ' : ''}${s.worldType} · ${s.mode}</span>
+        </div>
+        <div class="sc-actions">
+          <span class="sc-online">${s.online}/${s.maxPlayers} online</span>
+          <button class="primary sc-join" ${full ? 'disabled' : ''}>${full ? 'Full' : 'Join'}</button>
+        </div>`;
+      (card.querySelector('.sc-name') as HTMLElement).textContent = s.name;
+      card.querySelector('.sc-join')?.addEventListener('click', () => { if (!full) joinPublic(s); });
+      publicList.appendChild(card);
+    }
+  } catch (e) {
+    publicList.innerHTML = '';
+    serverErrorMsg(e instanceof ApiError ? e.message : 'Failed to load public worlds');
+  }
+}
+
+/** Join an open world by id, then drop straight in (pick role if survival). */
+function joinPublic(s: ServerInfo): void {
+  void (async () => {
+    serverErrorMsg('');
+    try {
+      const joined = await serverApi.joinOpen(s.id);
+      trackEvent('server_join', { open: true });
+      if (joined.mode !== 'creative') { role = pickedRole; }
+      await playServer(joined);
+    } catch (e) {
+      serverErrorMsg(e instanceof ApiError ? e.message : 'Could not join that world');
+      void renderPublic();
+    }
+  })();
 }
 
 async function playServer(s: ServerInfo): Promise<void> {
@@ -810,14 +875,16 @@ async function handleCreateWorld(): Promise<void> {
     const seed = parseSeed(seedInput.value);
     seedInput.value = String(seed);
     try {
-      const s = await serverApi.create({ name, worldType, mode, worldSize, seed });
-      trackEvent('server_create', { world: worldType, mode });
+      const s = await serverApi.create({ name, worldType, mode, worldSize, seed, visibility: newWorldVisibility });
+      trackEvent('server_create', { world: worldType, mode, visibility: newWorldVisibility });
       creatingServer = false;
       currentServer = s;
       startGame(true);
       connectPresence(s);
       saveCloud(true);
-      hud.toast(`Realm "${s.name}" created — invite code: ${s.inviteCode}`);
+      hud.toast(s.visibility === 'open'
+        ? `Open world "${s.name}" is live — up to ${s.maxPlayers} players. Invite code: ${s.inviteCode}`
+        : `Realm "${s.name}" created — invite code: ${s.inviteCode}`);
     } catch (e) {
       hud.toast(e instanceof ApiError ? e.message : 'Failed to create server');
     }

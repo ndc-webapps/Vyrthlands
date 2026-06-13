@@ -37,11 +37,13 @@ export function decorateOres(data: Uint8Array, cx: number, cz: number, seed: num
         }
 
         const h = hash3(x, y, z, seed + 900);
+        // richer veins so survival tool progression is feasible: coal common,
+        // iron readily found; gold/void/crystal stay rarer and deeper
         if (y < 9 && h > 0.998) data[i] = Block.VoidOre;
-        else if (y < 16 && h > 0.9955 && h <= 0.998) data[i] = Block.GoldOre;
-        else if (y < 26 && h > 0.992 && h <= 0.9955) data[i] = Block.IronOre;
-        else if (y < 36 && h > 0.982 && h <= 0.992) data[i] = Block.EmberOre;
-        else if (y < 18 && h < 0.0025) data[i] = Block.Crystal;
+        else if (y < 18 && h > 0.994 && h <= 0.998) data[i] = Block.GoldOre;
+        else if (y < 30 && h > 0.982 && h <= 0.994) data[i] = Block.IronOre;   // ~1.2%
+        else if (y < 40 && h > 0.955 && h <= 0.982) data[i] = Block.EmberOre;  // ~2.7% coal
+        else if (y < 18 && h < 0.0035) data[i] = Block.Crystal;
       }
     }
   }

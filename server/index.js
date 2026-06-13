@@ -37,6 +37,28 @@ const now = () => Date.now();
 const uid = () => crypto.randomUUID();
 const fail = (res, code, msg) => res.status(code).json({ error: msg });
 
+// Persistent public hangout everyone can drop into: a Theme Park world.
+const LOBBY_ID = 'public-lobby';
+async function ensureLobby() {
+  try {
+    const existing = await db.get('SELECT id FROM servers WHERE id = $1', [LOBBY_ID]);
+    if (existing) return;
+    let sys = await db.get('SELECT id FROM users WHERE id = $1', ['system']);
+    if (!sys) {
+      await db.run('INSERT INTO users (id, username, email, pass_hash, created_at, last_login) VALUES ($1,$2,$3,$4,$5,$6)',
+        ['system', 'VyrthlandsHQ', null, '-', now(), now()]);
+    }
+    await db.run(
+      `INSERT INTO servers (id, name, owner_id, world_type, mode, world_size, seed, max_players, invite_code, created_at, last_played, visibility)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [LOBBY_ID, 'Public Lobby — Theme Park', 'system', 'themepark', 'creative', 'large', 71717, 40, 'LOBBY1', now(), now(), 'open']
+    );
+    console.log('[lobby] created public Theme Park lobby');
+  } catch (e) {
+    console.warn('[lobby] could not ensure lobby:', e.message);
+  }
+}
+
 function makeInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let c = '';
@@ -66,6 +88,10 @@ async function memberOf(serverId, userId) {
   return !!(await db.get('SELECT 1 AS x FROM server_members WHERE server_id = $1 AND user_id = $2', [serverId, userId]));
 }
 
+/** Concurrent-player capacity by world size (open worlds enforce this). */
+const CAPACITY = { small: 6, medium: 12, large: 24, huge: 40 };
+function capacityFor(worldSize) { return CAPACITY[worldSize] ?? 12; }
+
 async function serverInfo(row, userId) {
   const members = await db.all(
     'SELECT u.id, u.username FROM server_members m JOIN users u ON u.id = m.user_id WHERE m.server_id = $1', [row.id]
@@ -73,7 +99,8 @@ async function serverInfo(row, userId) {
   return {
     id: row.id, name: row.name, ownerId: row.owner_id, isOwner: row.owner_id === userId,
     worldType: row.world_type, mode: row.mode, worldSize: row.world_size, seed: Number(row.seed),
-    maxPlayers: row.max_players, inviteCode: row.invite_code, // members can share the code too
+    maxPlayers: row.max_players, visibility: row.visibility || 'private',
+    inviteCode: row.invite_code, // members can share the code too
     createdAt: Number(row.created_at), lastPlayed: Number(row.last_played),
     members, online: roomUsers(row.id).length,
   };
@@ -149,21 +176,35 @@ app.get('/api/servers', auth, wrap(async (req, res) => {
 }));
 
 app.post('/api/servers', auth, wrap(async (req, res) => {
-  const { name, worldType, mode, worldSize, seed, maxPlayers } = req.body ?? {};
+  const { name, worldType, mode, worldSize, seed, visibility } = req.body ?? {};
   if (typeof name !== 'string' || name.trim().length < 1 || name.length > 32) {
     return fail(res, 400, 'Server name must be 1-32 characters');
   }
+  const size = String(worldSize ?? 'medium');
+  const vis = visibility === 'open' ? 'open' : 'private';
+  // open worlds size their capacity to the world; private worlds default to 8
+  const cap = vis === 'open' ? capacityFor(size) : Math.min(16, capacityFor(size));
   const id = uid();
   const code = makeInviteCode();
   await db.run(
-    `INSERT INTO servers (id, name, owner_id, world_type, mode, world_size, seed, max_players, invite_code, created_at, last_played)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    `INSERT INTO servers (id, name, owner_id, world_type, mode, world_size, seed, max_players, invite_code, created_at, last_played, visibility)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [id, name.trim(), req.user.id, String(worldType ?? 'natural'), String(mode ?? 'survival'),
-      String(worldSize ?? 'medium'), Number(seed ?? 0) | 0, Math.min(16, Math.max(1, Number(maxPlayers ?? 8))), code, now(), now()]
+      size, Number(seed ?? 0) | 0, cap, code, now(), now(), vis]
   );
   await db.run('INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1,$2,$3)', [id, req.user.id, now()]);
   const row = await db.get('SELECT * FROM servers WHERE id = $1', [id]);
   res.json({ server: await serverInfo(row, req.user.id) });
+}));
+
+// Browse public (open) worlds anyone can hop into — the lobby first, then
+// other open worlds with room, busiest first.
+app.get('/api/servers/public', auth, wrap(async (req, res) => {
+  const rows = await db.all("SELECT * FROM servers WHERE visibility = 'open' ORDER BY last_played DESC LIMIT 60");
+  const list = (await Promise.all(rows.map((r) => serverInfo(r, req.user.id))))
+    .filter((s) => s.online < s.maxPlayers || s.id === LOBBY_ID) // hide full worlds (lobby always shown)
+    .sort((a, b) => (a.id === LOBBY_ID ? -1 : b.id === LOBBY_ID ? 1 : b.online - a.online));
+  res.json({ servers: list });
 }));
 
 app.post('/api/servers/join', auth, wrap(async (req, res) => {
@@ -176,6 +217,20 @@ app.post('/api/servers/join', auth, wrap(async (req, res) => {
   await db.run(
     'INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1,$2,$3) ON CONFLICT (server_id, user_id) DO NOTHING',
     [row.id, req.user.id, now()]
+  );
+  res.json({ server: await serverInfo(row, req.user.id) });
+}));
+
+// Hop into an open world by id (no invite code). Capacity = concurrent online.
+app.post('/api/servers/join-open', auth, wrap(async (req, res) => {
+  const id = String(req.body?.id ?? '');
+  const row = await db.get('SELECT * FROM servers WHERE id = $1', [id]);
+  if (!row || (row.visibility || 'private') !== 'open') return fail(res, 404, 'That open world is no longer available');
+  const member = await memberOf(id, req.user.id);
+  if (!member && roomUsers(id).length >= row.max_players) return fail(res, 403, 'That world is full right now');
+  await db.run(
+    'INSERT INTO server_members (server_id, user_id, joined_at) VALUES ($1,$2,$3) ON CONFLICT (server_id, user_id) DO NOTHING',
+    [id, req.user.id, now()]
   );
   res.json({ server: await serverInfo(row, req.user.id) });
 }));
@@ -264,6 +319,13 @@ wss.on('connection', async (ws, req) => {
     ws.close(4001, 'Unauthorized');
     return;
   }
+  // enforce concurrent-player capacity (open worlds / lobby can get crowded)
+  const srow = await db.get('SELECT max_players FROM servers WHERE id = $1', [serverId]).catch(() => null);
+  const existing = rooms.get(serverId);
+  if (srow && existing && !existing.has(user.id) && existing.size >= srow.max_players) {
+    ws.close(4002, 'World is full');
+    return;
+  }
   ws.off('message', buffer);
   let room = rooms.get(serverId);
   if (!room) rooms.set(serverId, (room = new Map()));
@@ -338,6 +400,8 @@ wss.on('connection', async (ws, req) => {
     }
   });
 });
+
+await ensureLobby();
 
 httpServer.listen(PORT, () => {
   console.log(`Vyrthlands server on http://localhost:${PORT} (storage: ${db.engine})`);
