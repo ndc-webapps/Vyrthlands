@@ -13,6 +13,7 @@ export interface ServerInfo {
   worldSize: string;
   seed: number;
   maxPlayers: number;
+  visibility: 'open' | 'private';
   inviteCode?: string; // owners only
   createdAt: number;
   lastPlayed: number;
@@ -32,12 +33,22 @@ export class ServerApi {
     return this.auth.api<{ servers: ServerInfo[] }>('GET', '/api/servers').then((r) => r.servers);
   }
 
-  create(opts: { name: string; worldType: string; mode: string; worldSize: string; seed: number; maxPlayers?: number }): Promise<ServerInfo> {
+  create(opts: { name: string; worldType: string; mode: string; worldSize: string; seed: number; visibility?: 'open' | 'private' }): Promise<ServerInfo> {
     return this.auth.api<{ server: ServerInfo }>('POST', '/api/servers', opts).then((r) => r.server);
   }
 
   join(code: string): Promise<ServerInfo> {
     return this.auth.api<{ server: ServerInfo }>('POST', '/api/servers/join', { code }).then((r) => r.server);
+  }
+
+  /** Browse open worlds anyone can join (the public lobby is first). */
+  listPublic(): Promise<ServerInfo[]> {
+    return this.auth.api<{ servers: ServerInfo[] }>('GET', '/api/servers/public').then((r) => r.servers);
+  }
+
+  /** Hop into an open world by id (no invite code). */
+  joinOpen(id: string): Promise<ServerInfo> {
+    return this.auth.api<{ server: ServerInfo }>('POST', '/api/servers/join-open', { id }).then((r) => r.server);
   }
 
   load(serverId: string): Promise<CloudLoad> {

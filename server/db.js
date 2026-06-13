@@ -21,7 +21,8 @@ const SCHEMA = `
     id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL,
     world_type TEXT NOT NULL, mode TEXT NOT NULL, world_size TEXT NOT NULL,
     seed BIGINT NOT NULL, max_players INTEGER NOT NULL DEFAULT 8,
-    invite_code TEXT UNIQUE NOT NULL, created_at BIGINT NOT NULL, last_played BIGINT NOT NULL
+    invite_code TEXT UNIQUE NOT NULL, created_at BIGINT NOT NULL, last_played BIGINT NOT NULL,
+    visibility TEXT NOT NULL DEFAULT 'private'
   );
   CREATE TABLE IF NOT EXISTS server_members (
     server_id TEXT NOT NULL, user_id TEXT NOT NULL, joined_at BIGINT NOT NULL,
@@ -80,6 +81,8 @@ export async function openDb() {
     });
     try {
       await pool.query(SCHEMA);
+      // migration for DBs created before the visibility column existed
+      await pool.query("ALTER TABLE servers ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'private'");
     } catch (e) {
       console.error(`[db] FAILED to connect to Postgres via ${name} (host ${u.hostname}, db ${u.pathname.slice(1) || '?'}): ${e.message}`);
       console.error('[db] Refusing to fall back to sqlite when a database URL is set — fix the connection string and redeploy.');
@@ -113,6 +116,8 @@ export async function openDb() {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  // migration for older sqlite files (ADD COLUMN throws if it already exists)
+  try { db.exec("ALTER TABLE servers ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'"); } catch { /* already present */ }
   console.log(`[db] sqlite at ${file}`);
   const rewrite = (sql, params) => {
     const out = [];

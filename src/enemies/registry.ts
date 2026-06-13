@@ -68,10 +68,10 @@ const m = (kind: ModelSpec['kind'], body: number, accent: number, glow: number, 
 export const ENEMY_WORLDS: Record<string, WorldEnemies> = {
   // ------- Natural / flat: light ambient threat -------
   natural: {
-    dayMax: 3, nightMax: 6, spawnEvery: 4,
+    dayMax: 5, nightMax: 6, spawnEvery: 3.2,
     defs: [
       d('gloomling', 'Gloomling', m('crawler', 0x2a2438, 0x3a3050, 0xc890ff), 0.9, 10, 2.4, 0.07, 'swarm', [Item.VoidShard], { spawnTime: 'night', weight: 20 }),
-      d('meadow-strider', 'Meadow Strider', m('quad', 0x8a7a50, 0xb8a060, 0x2a2018, { ears: true }), 1.0, 12, 2.0, 0.05, 'roam', [Item.RawMeat, Item.LeafFiber], { spawnTime: 'day', weight: 12, tameable: true, rideSpeed: 1.9 }),
+      d('meadow-strider', 'Meadow Strider', m('quad', 0x8a7a50, 0xb8a060, 0x2a2018, { ears: true }), 1.0, 12, 2.0, 0.05, 'roam', [Item.RawMeat, Item.LeafFiber], { spawnTime: 'day', weight: 20, tameable: true, rideSpeed: 1.9 }),
       d('crystal-sprite', 'Crystal Sprite', m('ghost', 0x9adcf0, 0xc8f0ff, 0x7df0ff, { transparent: 0.7 }), 0.8, 8, 2.6, 0.05, 'flee', [Item.CrystalShard], { weight: 6 }),
     ],
   },

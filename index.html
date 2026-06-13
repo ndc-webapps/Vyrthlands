@@ -320,6 +320,10 @@
       </div>
       <p id="server-error" class="auth-error hidden"></p>
       <div id="server-list" class="server-list"></div>
+
+      <h2 class="server-section-title">Public <span>Worlds</span></h2>
+      <p class="tagline">Drop into the Theme Park lobby or any open world and meet other players.</p>
+      <div id="public-list" class="server-list"></div>
     </div>
   </div>
 
@@ -362,6 +366,12 @@
         <div class="seed-row">
           <input id="server-name-input" type="text" placeholder="My Realm" maxlength="32" autocomplete="off" />
         </div>
+        <label>Who can join</label>
+        <div class="opt-row" id="visibility-row">
+          <button data-vis="private" class="opt active">Private (invite code)</button>
+          <button data-vis="open" class="opt">Open (anyone can join)</button>
+        </div>
+        <p class="opt-desc" id="visibility-desc">Only people you give the invite code to can join. Capacity scales with world size.</p>
       </div>
 
       <div class="opt-group">
