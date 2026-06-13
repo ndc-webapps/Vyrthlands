@@ -160,9 +160,15 @@ interface MountState {
   pos: THREE.Vector3;
   riding: boolean;
   walkPhase: number;
+  seatHeight: number; // world Y of the creature's back above its feet (rider sits here)
 }
 let mount: MountState | null = null;
 const TAME_CHANCE = 0.25; // rare: ~4 feedings on average
+/** Local-space height of each model's back (where a rider sits), pre-scale. */
+const MOUNT_BACK: Record<string, number> = {
+  quad: 0.95, dino: 1.18, brute: 1.5, humanoid: 1.2,
+  flyer: 0.75, spider: 0.55, crawler: 0.6, ghost: 1.0, drone: 0.8, turret: 1.2,
+};
 hud.onSelect = (itemId) => viewModel.setHeldItem(itemId ?? 0);
 
 invUI.onClose = () => {
@@ -1476,8 +1482,9 @@ function createMount(def: EnemyDef, pos?: THREE.Vector3): void {
   scene.add(built.group);
   mount = {
     def, group: built.group, rig: built.rig,
-    pos: pos ?? (player ? player.position.clone().add(new THREE.Vector3(1.5, 0, 1.5)) : new THREE.Vector3()),
+    pos: pos ?? (player ? player.position.clone().add(new THREE.Vector3(2.5, 0, 2.5)) : new THREE.Vector3()),
     riding: false, walkPhase: 0,
+    seatHeight: (MOUNT_BACK[def.model.kind] ?? 0.95) * def.scale,
   };
   mount.group.position.copy(mount.pos);
 }
@@ -1510,7 +1517,9 @@ function mountUp(): void {
   if (!mount || !player) return;
   mount.riding = true;
   player.mountSpeed = mount.def.rideSpeed ?? 1.8;
-  player.eyeOffset = Math.min(1.2, Math.max(0.4, mount.def.scale * 0.55));
+  // sit on the creature's back: lift the camera to ~1 block above the saddle
+  // so you look down at the head/neck instead of being inside the body
+  player.eyeOffset = Math.max(0.35, mount.seatHeight - 0.55);
   sfx.ride();
   hud.toast(`Riding the ${mount.def.name} — Shift / ▼ to dismount`);
 }
@@ -1532,11 +1541,11 @@ function tryUseCreature(origin?: THREE.Vector3, dir?: THREE.Vector3): boolean {
 
   // your companion: aim near it and use = saddle up
   if (mount && !mount.riding) {
-    const to = mount.pos.clone().add(new THREE.Vector3(0, mount.def.scale * 0.6, 0)).sub(o);
+    const to = mount.pos.clone().add(new THREE.Vector3(0, mount.seatHeight * 0.6, 0)).sub(o);
     const along = to.dot(d);
-    if (along > 0 && along < 4.5) {
+    if (along > 0 && along < 6) {
       const perp = Math.sqrt(Math.max(0, to.lengthSq() - along * along));
-      if (perp < 1.5) { mountUp(); return true; }
+      if (perp < 1.8) { mountUp(); return true; }
     }
   }
 
@@ -1558,7 +1567,8 @@ function tryUseCreature(origin?: THREE.Vector3, dir?: THREE.Vector3): boolean {
   return false;
 }
 
-/** Per-frame companion behavior: glued under you while riding, follows otherwise. */
+/** Per-frame companion behavior: carried under the rider while riding,
+ *  trails a few blocks behind otherwise. */
 function updateMount(dt: number): void {
   if (!mount || !player || !world) return;
   if (mount.riding) {
@@ -1566,31 +1576,45 @@ function updateMount(dt: number): void {
       dismountMount();
       return;
     }
-    mount.pos.copy(player.position);
-    mount.group.position.copy(player.position);
-    mount.group.position.y -= 0.15;
+    // seat the rider slightly forward of the body center so the head/neck
+    // reads ahead-and-below — the creature's feet stay on the ground
+    const back = 0.35 * mount.def.scale;
+    mount.pos.set(
+      player.position.x + Math.sin(player.yaw) * back,
+      player.position.y,
+      player.position.z + Math.cos(player.yaw) * back
+    );
+    mount.group.position.copy(mount.pos);
     mount.group.rotation.y = player.yaw;
     animateMount(Math.hypot(player.velocity.x, player.velocity.z), dt);
     return;
   }
-  // follow at heel; teleport if left far behind
-  const tx = player.position.x - Math.sin(player.yaw + 2.4) * 2.2;
-  const tz = player.position.z - Math.cos(player.yaw + 2.4) * 2.2;
-  const dx = tx - mount.pos.x, dz = tz - mount.pos.z;
-  const dist = Math.hypot(dx, dz);
-  if (dist > 28) {
-    mount.pos.set(tx, player.position.y, tz);
-  } else if (dist > 1.2) {
-    const sp = Math.min(dist * 2, mount.def.speed + 2.5);
-    mount.pos.x += (dx / dist) * sp * dt;
-    mount.pos.z += (dz / dist) * sp * dt;
-    mount.group.rotation.y = Math.atan2(-dx, -dz);
+  // follow loosely: keep a 2.5–4 block gap so it never blocks your view.
+  // catch up only when it falls past MAX, and stop at MIN from the player.
+  const MIN = 2.6, MAX = 4.2;
+  const dx = player.position.x - mount.pos.x, dz = player.position.z - mount.pos.z;
+  const dist = Math.hypot(dx, dz) || 0.0001;
+  let moving = 0;
+  if (dist > 26) {
+    // teleport behind the player if hopelessly far (out of render range)
+    mount.pos.set(player.position.x + Math.sin(player.yaw) * 3, player.position.y, player.position.z + Math.cos(player.yaw) * 3);
+  } else if (dist > MAX) {
+    // approach a point MIN blocks from the player, in the mount's current direction
+    const targetX = player.position.x - (dx / dist) * MIN;
+    const targetZ = player.position.z - (dz / dist) * MIN;
+    const mx = targetX - mount.pos.x, mz = targetZ - mount.pos.z;
+    const md = Math.hypot(mx, mz) || 0.0001;
+    const sp = Math.min(md * 3, mount.def.speed + 2.5);
+    mount.pos.x += (mx / md) * sp * dt;
+    mount.pos.z += (mz / md) * sp * dt;
+    mount.group.rotation.y = Math.atan2(dx, dz); // face the player
+    moving = 2.5;
   }
   const fx = Math.floor(mount.pos.x), fz = Math.floor(mount.pos.z);
   const sy = world.inBounds(fx, 0, fz) ? world.surfaceY(fx, fz) : player.position.y;
   mount.pos.y += (sy - mount.pos.y) * Math.min(1, 10 * dt);
   mount.group.position.copy(mount.pos);
-  animateMount(dist > 1.2 ? 2.5 : 0, dt);
+  animateMount(moving, dt);
 }
 
 function animateMount(speed: number, dt: number): void {
@@ -2188,7 +2212,13 @@ function frame(now: number): void {
       eyePos.z - lookDir.z * dist
     );
     const hSpeed2 = Math.hypot(player.velocity.x, player.velocity.z);
-    playerModel.update(dt, player.position, player.yaw, hSpeed2);
+    // when mounted, lift the rider model up onto the creature's back
+    if (mount?.riding) {
+      _spark.copy(player.position); _spark.y += mount.seatHeight;
+      playerModel.update(dt, _spark, player.yaw, hSpeed2);
+    } else {
+      playerModel.update(dt, player.position, player.yaw, hSpeed2);
+    }
   } else {
     camera.position.copy(eyePos);
   }
