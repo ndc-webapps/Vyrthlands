@@ -16,16 +16,22 @@
 html, body {
   width: 100%; height: 100%;
   overflow: hidden;
+  /* kill pull-to-refresh / scroll-chaining bounce that can drop fullscreen */
+  overscroll-behavior: none;
   background: var(--bg);
   font-family: var(--font);
   color: var(--text);
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #game-canvas {
   position: fixed; inset: 0;
   width: 100%; height: 100%;
   display: block;
+  touch-action: none; /* no browser gestures over the play surface */
 }
 
 .hidden { display: none !important; }
@@ -43,6 +49,8 @@ html, body {
   inset: 0;
   z-index: 30;
   overflow-y: auto;
+  overscroll-behavior: contain; /* scrolls, but no pull-to-refresh bounce */
+  -webkit-overflow-scrolling: touch;
   background:
     radial-gradient(circle at 78% 22%, rgba(94, 234, 212, 0.09), transparent 34%),
     radial-gradient(circle at 18% 4%, rgba(129, 140, 248, 0.12), transparent 31%),
@@ -81,25 +89,28 @@ html, body {
 .brand-logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: var(--ice);
-  font-family: 'Syne', var(--font);
-  font-weight: 800;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  font-size: 14px;
+  text-decoration: none;
 }
-.logo-mark {
-  width: 38px;
+/* the supplied PNG has a dark backdrop — screen-blend drops it into the
+   dark nav so only the glowing emblem + wordmark show, like a real logo */
+.brand-img {
+  height: 40px;
+  width: auto;
+  display: block;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 14px rgba(94, 234, 212, 0.18));
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+.brand-logo:hover .brand-img {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 20px rgba(94, 234, 212, 0.32));
+}
+.footer-brand { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
+.footer-img {
   height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 7px;
-  background: #0d2420;
-  border: 1px solid rgba(94, 234, 212, 0.34);
-  color: var(--crystal);
-  font-size: 17px;
-  box-shadow: 0 0 30px rgba(94, 234, 212, 0.18), inset 0 0 20px rgba(94, 234, 212, 0.07);
+  width: auto;
+  display: block;
+  mix-blend-mode: screen;
 }
 .nav-links {
   display: flex;
@@ -694,7 +705,7 @@ html, body {
     align-items: center;
     padding: 14px 16px;
   }
-  .brand-name { display: none; }
+  .brand-img { height: 32px; }
   .nav-links { display: none; }
   .nav-actions { margin-left: auto; }
   /* hide only the top-level "Create Account" button — never the chip's Logout */
@@ -1694,8 +1705,7 @@ body.touch-mode #controls-help { display: none; }
 /* type system: Space Grotesk display, Inter body */
 #landing-page .hero-title,
 #landing-page .section-heading h2,
-#landing-page .cta-panel h2,
-#landing-page .brand-name {
+#landing-page .cta-panel h2 {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
   letter-spacing: -0.02em;
 }
@@ -1905,10 +1915,6 @@ body.touch-mode #controls-help { display: none; }
 #landing-page .landing-nav { background: rgba(5, 7, 12, 0.7); border-bottom: 1px solid var(--hairline); }
 #landing-page .ghost-btn { background: transparent; border-color: var(--hairline); border-radius: 9px; }
 #landing-page .ghost-btn:hover { border-color: rgba(94, 234, 212, 0.45); background: rgba(94, 234, 212, 0.06); }
-#landing-page .logo-mark {
-  background: linear-gradient(135deg, #0d2420, #11343f);
-  border-radius: 9px;
-}
 
 /* footer */
 #landing-page .landing-footer { border-top: 1px solid var(--hairline); background: transparent; }
