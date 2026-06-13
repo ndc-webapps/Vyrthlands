@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1124"/><stop offset="0.55" stop-color="#070a14"/><stop offset="1" stop-color="#03040a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.7" cy="0.3" r="0.5">
+      <stop offset="0" stop-color="#5eead4" stop-opacity="0.22"/><stop offset="1" stop-color="#5eead4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0.3" stop-color="#f2f5fa"/><stop offset="0.55" stop-color="#5eead4"/><stop offset="0.8" stop-color="#9aa8ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g stroke="#5eead4" stroke-opacity="0.06">
+    <path d="M0 90 H1200 M0 210 H1200 M0 330 H1200 M0 450 H1200 M0 570 H1200"/>
+    <path d="M120 0 V630 M280 0 V630 M440 0 V630 M600 0 V630 M760 0 V630 M920 0 V630 M1080 0 V630"/>
+  </g>
+  <rect x="80" y="78" width="66" height="66" rx="14" fill="#0d2420" stroke="#5eead4" stroke-opacity="0.4"/>
+  <path d="M96 96 L113 130 L130 96" fill="none" stroke="#5eead4" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="162" y="128" font-family="'Space Grotesk', Inter, sans-serif" font-size="26" font-weight="700" letter-spacing="6" fill="#f0f4ff">VYRTHLANDS</text>
+  <text x="80" y="330" font-family="'Space Grotesk', Inter, sans-serif" font-size="118" font-weight="700" fill="url(#ink)">Vyrthlands</text>
+  <text x="84" y="398" font-family="Inter, sans-serif" font-size="40" font-weight="700" fill="#cdd8ea">Sixteen realms. Five roles. One crystal-lit sky.</text>
+  <text x="84" y="452" font-family="Inter, sans-serif" font-size="25" fill="#8b95ab">Mine, build, tame &amp; survive cinematic voxel worlds — free, with friends, in your browser.</text>
+  <g transform="translate(84 508)">
+    <rect width="232" height="58" rx="10" fill="#5eead4"/>
+    <text x="116" y="38" text-anchor="middle" font-family="Inter, sans-serif" font-size="22" font-weight="800" fill="#04100f">Start Adventure  →</text>
+    <g font-family="Inter, sans-serif" font-size="20" font-weight="700" fill="#8b95ab">
+      <text x="262" y="38">16 realms · 21 rides · tame &amp; ride</text>
+    </g>
+  </g>
+  <g opacity="0.9">
+    <rect x="900" y="250" width="150" height="40" fill="#6abe50"/>
+    <rect x="900" y="290" width="150" height="36" fill="#86694a"/>
+    <rect x="918" y="326" width="114" height="44" fill="#7b7d87"/>
+    <rect x="946" y="370" width="58" height="40" fill="#6f717b"/>
+    <rect x="1062" y="232" width="26" height="70" fill="#7df0ff"/>
+    <rect x="1092" y="258" width="20" height="44" fill="#7df0ff" opacity="0.8"/>
+    <rect x="916" y="206" width="26" height="44" fill="#7a5a36"/>
+    <rect x="900" y="180" width="58" height="30" fill="#4f9e3e"/>
+  </g>
+</svg>
